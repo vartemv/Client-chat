@@ -1,9 +1,8 @@
 #include "Comm.h"
 #include "global_variables.h"
+#include <sys/wait.h>
 #include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/containers/vector.hpp>
-#include <boost/interprocess/containers/string.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
+#include <poll.h>
 
 bool handle_chat(std::string& userInput);
 static void Init_values();
@@ -13,79 +12,74 @@ int main() {
     Init_values();
     sockaddr_in server_address = server_connection();
     int client_socket = create_socket();
-    std::string test = "test";
-    std::string user_name = "xveren00";
 
-//    using namespace boost::interprocess;
-    //Typedefs
-    typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager>
-            CharAllocator;
-    typedef boost::interprocess::basic_string<char, std::char_traits<char>, CharAllocator>
-            MyShmString;
-    typedef boost::interprocess::allocator<MyShmString, boost::interprocess::managed_shared_memory::segment_manager>
-            StringAllocator;
-    typedef boost::interprocess::vector<MyShmString, StringAllocator>
-            MyShmStringVector;
-
-    //Open shared memory
-    //Remove shared memory on construction and destruction
-    struct shm_remove
-    {
+    struct shm_remove {
         shm_remove() { boost::interprocess::shared_memory_object::remove("MySharedMemory"); }
         ~shm_remove(){ boost::interprocess::shared_memory_object::remove("MySharedMemory"); }
     } remover;
 
-    boost::interprocess::managed_shared_memory shm(boost::interprocess::create_only, "MySharedMemory", 10000);
+    // Create a new segment with given name and size
+    boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "MySharedMemory", 1024);
 
-    //Create allocators
-    CharAllocator     charallocator  (shm.get_segment_manager());
-    StringAllocator   stringallocator(shm.get_segment_manager());
+    // Initialize shared memory bool
+    bool* myBool = segment.construct<bool>("myBool")(false);
 
-    //This string is in only in this process (the pointer pointing to the
-    //buffer that will hold the text is not in shared memory).
-    //But the buffer that will hold "this is my text" is allocated from
-    //shared memory
-    MyShmString mystring(charallocator);
-
-    //This vector is fully constructed in shared memory. All pointers
-    //buffers are constructed in the same shared memory segment
-    //This vector can be safely accessed from other processes.
-    MyShmStringVector *myshmvector =
-            shm.construct<MyShmStringVector>("myshmvector")(stringallocator);
-
+    // Now let's change the value of the bool to true
+    *myBool = true;
+    struct pollfd fds[1];
+    fds[0].fd = STDIN_FILENO;
+    fds[0].events = POLLIN;
     std::string userInput;
-    while(1){
-        std::getline(std::cin, userInput);
-
-        mystring = userInput;
-        myshmvector->insert(myshmvector->begin(), 1, mystring);
-
-        if(!handle_chat(userInput))
-            break;
-
-        std::cout<<myshmvector[0][0]<<std::endl;
+    pid_t pid1 = fork();
+    if(pid1 != 0){
+    while(*myBool){
+        int ret = poll(fds, 1, 300);
+        if(ret == -1){
+            printf("Error: poll failed\n");
+        }else if (!ret){
+            continue;
+        }
+        else{
+            std::getline(std::cin, userInput);
+            if (!userInput.empty()){
+                pid_t pid = fork();
+                if (pid == 0){
+                    if (!handle_chat(userInput)) {
+                     //end_connection_and_cleanup();
+                        *myBool= false;}
+                    std::cout<<userInput<<std::endl;
+                    userInput.clear();
+                    kill(getpid(), SIGKILL);}
+            }
+        }
     }
-
-    //Destroy vector. This will free all strings that the vector contains
-    shm.destroy_ptr(myshmvector);
-
+    }else{
+        while(true){
+            //listen_on_socket();
+            break;
+        }
+    }
+    while(wait(NULL)>0);
     return 0;
 }
+
+
 
 bool handle_chat(std::string& userInput){
     switch (String_to_values[userInput]) {
         case evAuth:
-            return false;
+
+            return true;
         case evJoin:
-            return false;
+            return true;
         case evHelp:
-            return false;
+            return true;
         case evEnd:
             return false;
         case evRename:
-            return false;
+            return true;
         default:
-            return false;
+            return true;
     }
     return true;
 
