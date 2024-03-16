@@ -59,7 +59,6 @@ int main() {
     boost::interprocess::shared_memory_object::remove("shared_mbool");
     boost::interprocess::shared_memory_object::remove("MyShareMVECTOR");
     //
-
     return 0;
 }
 
