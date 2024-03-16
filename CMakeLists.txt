@@ -8,5 +8,5 @@ add_executable(ipk_cpp main.cpp
         Comm.cpp
         Comm.h
         packets.cpp
-        global_variables.h
+        global_declarations.h
 )

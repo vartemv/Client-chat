@@ -3,15 +3,16 @@
 //
 #include "Comm.h"
 
-//const char* HOST = "127.0.0.1";
-const char* HOST = "anton5.fit.vutbr.cz";
-
+const char *HOST = "127.0.0.1";
+//const char *HOST = "anton5.fit.vutbr.cz";
 uint32_t port_number = 4567;
+uint16_t timeout = 250;
+uint8_t retransmits = 3;
 
-sockaddr_in server_connection(){
+sockaddr_in server_connection() {
 
     struct hostent *server = gethostbyname(HOST);
-    if (server == NULL) {
+    if (server == nullptr) {
         fprintf(stderr, "ERROR: no such host %s\n", HOST);
         return {};
     }
@@ -24,7 +25,7 @@ sockaddr_in server_connection(){
     return server_address;
 }
 
-int create_socket(){
+int create_socket() {
 
     int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -35,13 +36,44 @@ int create_socket(){
     return client_socket;
 }
 
-int receive_message(sockaddr_in server_address, int client_socket, uint8_t buf){
+int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf, size_t len) {
     socklen_t server_address_length = sizeof(server_address);
-    int bytes_received = recvfrom(client_socket, &buf, sizeof(buf), 0, (struct sockaddr *) &server_address,
+    int bytes_received = recvfrom(client_socket, &buf, len, 0, (struct sockaddr *) &server_address,
                                   &server_address_length);
-    if (bytes_received < 0) {
+    if (bytes_received <= 0) {
         perror("ERROR: recvfrom");
-        return {};
+        return 0;
     }
     return bytes_received;
+}
+
+void listen_on_socket(sockaddr_in server_address, int client_socket) {
+    struct pollfd fds[1];
+    fds[0].fd = client_socket;
+    fds[0].events = POLLIN;
+    uint8_t buf[2048];
+    size_t len = sizeof(buf);
+
+
+    while (true) {
+        int ret = poll(fds, 1, 300);
+
+        if (ret == -1) {
+            printf("Error: poll failed\n");
+            break;
+        } else if (!ret) {
+            continue;
+        } else {
+            int message_length = receive_message(server_address, client_socket, buf, len);
+
+            if (message_length <= 0)
+                std::cout << "Problem with message" << std::endl;
+
+            decipher_the_message(buf, message_length);
+            break;
+        }
+
+
+    }
+
 }
