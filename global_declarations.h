@@ -6,6 +6,7 @@
 #include "vector"
 #include "map"
 #include <boost/interprocess/managed_shared_memory.hpp>
+#include <semaphore.h>
 
 
 #ifndef IPK_CPP_GLOBAL_QUEUES_H
@@ -13,7 +14,7 @@
 
 bool handle_chat(std::string &userInput);
 
-static void Init_values();
+static bool Init_values();
 
 enum StringValue {
     evAuth,
@@ -42,6 +43,5 @@ bool *end;
 
 sockaddr_in server_address;
 int client_socket;
-uint16_t count = 0;
 
 #endif //IPK_CPP_GLOBAL_QUEUES_H

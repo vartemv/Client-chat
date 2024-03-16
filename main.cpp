@@ -2,18 +2,27 @@
 #include "global_declarations.h"
 #include <sys/wait.h>
 
-boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "MyShareMVECTOR",65536);
+//Declaration of shared memory for vector and semaphores
+boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "MyShareMVECTOR",
+                                                              65536);
 const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
 SharedVector *myVector = segment_for_vector.construct<SharedVector>("MyVector")(alloc_inst);
+sem_t *sent_messages;
+uint16_t count = 0;
+
 int main() {
-    Init_values();
+    if (!Init_values())
+        return 1;
+
     struct pollfd fds[1];
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
-    //auth_to_server(server_address, client_socket, str, str);
-    std::string userInput;
-    pid_t pid1 = fork();
 
+    std::string userInput;
+
+    pid_t pid1 = fork();
+//    if(pid1 == -1)
+//        return 99;
     if (pid1 != 0) {
         while (*chat) {
             int ret = poll(fds, 1, 300);
@@ -36,8 +45,10 @@ int main() {
                 }
             }
         }
+    } else if (pid1 == -1) {
+        return 99;
     } else {
-        //listen_on_socket(server_address, client_socket);
+//listen_on_socket(server_address, client_socket);
     }
 
     //std::cout<<"exited"<<std::endl;
@@ -96,7 +107,7 @@ bool handle_chat(std::string &userInput) {
     return true;
 }
 
-static void Init_values() {
+static bool Init_values() {
     String_to_values["/auth"] = evAuth;
     String_to_values["/join"] = evJoin;
     String_to_values["/rename"] = evRename;
@@ -109,6 +120,12 @@ static void Init_values() {
     error = segment.construct<bool>("error")(false);
     end = segment.construct<bool>("end")(false);
 
+    if ((sent_messages = sem_open("sent", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) {
+        perror("sem_open");
+        return false;
+    }
+
     server_address = server_connection();
     client_socket = create_socket();
+    return true;
 }

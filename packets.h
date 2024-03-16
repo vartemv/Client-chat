@@ -21,6 +21,8 @@ void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_n
 
 void decipher_the_message(uint8_t* buf, int message_length);
 
+extern uint16_t count;
+
 #endif //IPK_CPP_PACKETS_H
 
 //To create BYE use Packets struct
