@@ -37,7 +37,7 @@ int create_socket() {
 
 int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf, size_t len) {
     socklen_t server_address_length = sizeof(server_address);
-    int bytes_received = recvfrom(client_socket, &buf, len, 0, (struct sockaddr *) &server_address,
+    int bytes_received = recvfrom(client_socket, buf, len, 0, (struct sockaddr *) &server_address,
                                   &server_address_length);
     if (bytes_received <= 0) {
         perror("ERROR: recvfrom");
@@ -52,9 +52,10 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
     fds[0].events = POLLIN;
     uint8_t buf[2048];
     size_t len = sizeof(buf);
+    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "60", 1024);
+    bool* listen_on_port = segment_bool.construct<bool>("listening")(true);
 
-
-    while (true) {
+    while (*listen_on_port) {
         int ret = poll(fds, 1, 300);
 
         if (ret == -1) {
@@ -63,16 +64,19 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
         } else if (!ret) {
             continue;
         } else {
-            int message_length = receive_message(server_address, client_socket, buf, len);
+            pid_t pid = fork();
+            if (pid == 0) {
+                int message_length = receive_message(server_address, client_socket, buf, len);
 
-            if (message_length <= 0)
-                std::cout << "Problem with message" << std::endl;
-
-            decipher_the_message(buf, message_length);
-            break;
+                if (message_length <= 0)
+                    std::cout << "Problem with message" << std::endl;
+                std::cout<<message_length<<std::endl;
+                if (!decipher_the_message(buf, message_length))
+                    *listen_on_port = false;
+                kill(getpid(), SIGKILL);
+            }
         }
-
-
     }
-
+    segment_bool.destroy<bool>("listening");
+    boost::interprocess::shared_memory_object::remove("60");
 }

@@ -10,18 +10,29 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
+#include <boost/interprocess/containers/vector.hpp>
+#include <semaphore.h>
 
-void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name, uint16_t count);
+void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name);
 
-void say_bye(sockaddr_in server_address, int client_socket, uint16_t count);
+void say_bye(sockaddr_in server_address, int client_socket);
 
-void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name, uint16_t count);
+void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name);
 
-void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error, uint16_t count);
+void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error);
 
-void decipher_the_message(uint8_t* buf, int message_length);
+bool decipher_the_message(uint8_t *buf, int message_length);
 
-extern uint16_t count;
+void increment_counter();
+
+typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
+typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
+extern SharedVector *myVector;
+extern sem_t *sent_messages;
+extern sem_t *counter_stop;
+extern uint16_t* count;
 
 #endif //IPK_CPP_PACKETS_H
 

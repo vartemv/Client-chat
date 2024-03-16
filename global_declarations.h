@@ -26,7 +26,7 @@ enum StringValue {
 
 static std::map<std::string, StringValue> String_to_values;
 // Create a new segment with given name and size
-boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "shared_mbool", 1024);
+
 
 //typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
 //typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
