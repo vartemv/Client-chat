@@ -16,7 +16,6 @@ sockaddr_in server_connection() {
         fprintf(stderr, "ERROR: no such host %s\n", HOST);
         return {};
     }
-
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;

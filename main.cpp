@@ -2,13 +2,15 @@
 #include "global_declarations.h"
 #include <sys/wait.h>
 
+boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "MyShareMVECTOR",65536);
+const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
+SharedVector *myVector = segment_for_vector.construct<SharedVector>("MyVector")(alloc_inst);
 int main() {
     Init_values();
     struct pollfd fds[1];
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
     //auth_to_server(server_address, client_socket, str, str);
-
     std::string userInput;
     pid_t pid1 = fork();
 
@@ -43,8 +45,8 @@ int main() {
 
     //TODO Cleanup function
     close(client_socket);
-    boost::interprocess::shared_memory_object::remove("shared_memory_for_bool");
-    boost::interprocess::shared_memory_object::remove("MySharedMemory_VECTOR");
+    boost::interprocess::shared_memory_object::remove("shared_mbool");
+    boost::interprocess::shared_memory_object::remove("MyShareMVECTOR");
     //
 
     return 0;
@@ -106,11 +108,6 @@ static void Init_values() {
     open_state = segment.construct<bool>("open_state")(false);
     error = segment.construct<bool>("error")(false);
     end = segment.construct<bool>("end")(false);
-
-    const ShmemAllocator alloc_inst(
-            segment_for_vector.get_segment_manager()); // Initialize shared memory STL-compatible allocator
-    myVector = segment_for_vector.construct<SharedVector>("MyVector")(
-            alloc_inst); // Construct a vector named "MyVector" in shared memory with argument alloc_inst
 
     server_address = server_connection();
     client_socket = create_socket();

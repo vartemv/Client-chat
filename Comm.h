@@ -15,6 +15,13 @@
 #include <csignal>
 #include <poll.h>
 #include "packets.h"
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
+#include <boost/interprocess/containers/vector.hpp>
+
+typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
+typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
+extern SharedVector *myVector;;
 
 int create_socket();
 
