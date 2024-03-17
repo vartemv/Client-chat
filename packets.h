@@ -14,6 +14,8 @@
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/containers/vector.hpp>
 #include <semaphore.h>
+#include <chrono>
+#include <thread>
 
 void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name);
 
@@ -32,7 +34,7 @@ typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 extern SharedVector *myVector;
 extern sem_t *sent_messages;
 extern sem_t *counter_stop;
-extern uint16_t* count;
+extern uint16_t *count;
 
 #endif //IPK_CPP_PACKETS_H
 

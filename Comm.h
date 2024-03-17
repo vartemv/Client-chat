@@ -16,6 +16,7 @@
 #include <poll.h>
 #include "packets.h"
 
+
 int create_socket();
 
 sockaddr_in server_connection();
@@ -23,6 +24,7 @@ sockaddr_in server_connection();
 void listen_on_socket(sockaddr_in server_address, int client_socket);
 
 int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf, size_t len);
+
 #endif //IPK_CPP_COMM_H
 
 

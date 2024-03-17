@@ -52,8 +52,11 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
     fds[0].events = POLLIN;
     uint8_t buf[2048];
     size_t len = sizeof(buf);
-    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "60", 1024);
-    bool* listen_on_port = segment_bool.construct<bool>("listening")(true);
+    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "73", 1024);
+    bool *listen_on_port = segment_bool.construct<bool>("listening")(true);
+
+    pid_t main_id = getpid();
+    pid_t pid;
 
     while (*listen_on_port) {
         int ret = poll(fds, 1, 300);
@@ -61,22 +64,29 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
         if (ret == -1) {
             printf("Error: poll failed\n");
             break;
-        } else if (!ret) {
-            continue;
-        } else {
-            pid_t pid = fork();
+        } else if (ret > 0) {
+            if (main_id == getpid())
+                pid = fork();
             if (pid == 0) {
                 int message_length = receive_message(server_address, client_socket, buf, len);
 
                 if (message_length <= 0)
                     std::cout << "Problem with message" << std::endl;
-                std::cout<<message_length<<std::endl;
+
                 if (!decipher_the_message(buf, message_length))
                     *listen_on_port = false;
+
                 kill(getpid(), SIGKILL);
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+
     }
-    segment_bool.destroy<bool>("listening");
-    boost::interprocess::shared_memory_object::remove("60");
+    if (getpid() == main_id) {
+        segment_bool.destroy<bool>("listening");
+        boost::interprocess::shared_memory_object::remove("73");
+    }
+//    else{
+//        std::cout<<"Helper socket exited"<<std::endl;
+//    }
 }

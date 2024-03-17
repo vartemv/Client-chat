@@ -4,8 +4,8 @@
 
 //Declaration of shared memory for vector and semaphores
 
-boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "61", 1024);
-boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "62",
+boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "71", 1024);
+boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "72",
                                                               65536);
 const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
 SharedVector *myVector = segment_for_vector.construct<SharedVector>("Myctor")(alloc_inst);
@@ -49,21 +49,27 @@ int main() {
                             *chat = false;
                         }
                         userInput.clear();
-                        kill(getpid(), SIGKILL);
+                        std::cout << "helper chat exited" << std::endl;
+                        break;
+                        //kill(getpid(), SIGKILL);
                     }
                 }
             }
+
         }
     } else {
         listen_on_socket(server_address, client_socket);
     }
 
+    if (pid1 == 0)
+        std::cout << "socket exited" << std::endl;
+
     while (wait(nullptr) > 0);
 
     //TODO Cleanup function
     close(client_socket);
-    boost::interprocess::shared_memory_object::remove("56");
-    boost::interprocess::shared_memory_object::remove("57");
+    boost::interprocess::shared_memory_object::remove("71");
+    boost::interprocess::shared_memory_object::remove("72");
     //boost::interprocess::shared_memory_object::remove("Myector");
     segment.destroy<bool>("chat");
     segment.destroy<bool>("auth");
@@ -93,18 +99,22 @@ bool handle_chat(std::string &userInput) {
         if (!auth && value != evHelp) {
             std::cout << "You should sign in before doing anything" << std::endl;
         } else {
+
             sem_wait(sent_messages);
             myVector->push_back(*count);
+            myVector->push_back(0);
             sem_post(sent_messages);
+
             switch (value) {
                 case evAuth:
-//                    if (!*auth) {
+                    if (!*auth) {
                         *auth = true;
                         auth_to_server(server_address, client_socket, test, test);
                         std::cout << "authed" << std::endl;
-//                    } else {
-//                        std::cout << "You already authed to server" << std::endl;
-//                    }
+                    } else {
+                        std::cout << "You already authed to server" << std::endl;
+                        auth_to_server(server_address, client_socket, test, test);
+                    }
                     break;
                 case evJoin:
                     std::cout << "joined" << std::endl;
@@ -123,6 +133,7 @@ bool handle_chat(std::string &userInput) {
     } else {
         sem_wait(sent_messages);
         myVector->push_back(*count);
+        myVector->push_back(0);
         sem_post(sent_messages);
         std::cout << "send msg" << std::endl;
     }
