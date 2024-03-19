@@ -3,8 +3,8 @@
 //
 #include "Comm.h"
 
-const char *HOST = "127.0.0.1";
-//const char *HOST = "anton5.fit.vutbr.cz";
+//const char *HOST = "127.0.0.1";
+const char *HOST = "anton5.fit.vutbr.cz";
 uint32_t port_number = 4567;
 uint16_t timeout = 250;
 uint8_t retransmits = 3;

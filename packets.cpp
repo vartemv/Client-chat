@@ -38,6 +38,22 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
     return false;
 }
 
+void add_to_sent_messages(SharedVector *myVector, int counter){
+    sem_wait(sent_messages);
+    myVector->push_back(counter);
+    myVector->push_back(0);
+    sem_post(sent_messages);
+
+    auto it1 = std::find(myVector->begin(), myVector->end(), 65535);
+    auto it2 = std::find(myVector->begin(), myVector->end(), 65266);
+    if (it1 != myVector->end()) {
+        *it1 = 0;
+    }
+    if (it2 != myVector->end()) {
+        *it2 = 0;
+    }
+}
+
 void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     SharedVector *myVector) {
     uint8_t buf_out[256];
@@ -59,6 +75,8 @@ void auth_to_server(sockaddr_in server_address, int client_socket, std::string &
     long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address,
                            address_size);
     if (bytes_tx < 0) perror("ERROR: sendto");
+
+    add_to_sent_messages(myVector, local_count);
 
     waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address, myVector);
 
@@ -94,13 +112,22 @@ void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_n
               SharedVector *myVector) {
     uint8_t buf_out[1250];
 
+    int local_count = *count;
+
     MsgPacket message(error ? 0xFE : 0x04, *count, msg, disp_name);
     increment_counter();
 
     int len = message.construct_message(buf_out);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address, sizeof(server_address));
+    int address_size = sizeof(server_address);
+
+    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address, address_size);
     if (bytes_tx < 0) perror("ERROR: sendto");
+
+    add_to_sent_messages(myVector, local_count);
+
+    waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address, myVector);
+
 }
 
 void read_msg_bytes(uint8_t *buf, int message_length) {

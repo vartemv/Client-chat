@@ -16,31 +16,6 @@ int main() {
     count = (uint16_t *) mmap(0, sizeof(uint16_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     *count = 0;
 
-//    pid_t pid13 = fork();
-//
-//    if (pid13 == 0){
-//        pid_t pid14 = fork();
-//        if (pid14 == 0){
-//            for(int i = 0; i<5; i++){
-//                int pid15 = fork();
-//                if(pid15 == 0){
-//                    myVector->push_back(*count);
-//                    myVector->push_back(0);
-//                    *count+=1;
-//                    for(const uint16_t &item : *myVector) {
-//                        std::cout << item << ' ';
-//                    }
-//                    std::cout << std::endl;
-//                }else{
-//                    break;
-//                }
-//            }
-//        }
-//    }
-//
-//
-//    while (wait(nullptr) > 0);
-//    return 1;
     boost::interprocess::shared_memory_object::remove("21");
     boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "21",
                                                                   65536);
@@ -96,9 +71,6 @@ int main() {
         listen_on_socket(server_address, client_socket, myVector);
     }
 
-//    if (pid1 == 0)
-//        std::cout << "socket exited" << std::endl;
-
     while (wait(nullptr) > 0);
 
     //TODO Cleanup function
@@ -130,71 +102,46 @@ bool handle_chat(std::string &userInput, SharedVector *myVector) {
 
     if (it != String_to_values.end()) {
         int value = it->second;
+        if (!*auth) {
+            if (value != evAuth)
+                if (value != evHelp) {
+                    std::cout << "You have to sign in before doing anything";
+                    return true;
+                }
+        }
+        switch (value) {
+            case evAuth:
+                if (!*auth) {
+                    *auth = true;
+                    auth_to_server(server_address, client_socket, test, test, myVector);
+                } else {
+                    std::cout << "You already authed to server" << std::endl;
+                }
+                break;
+            case evJoin:
+                join_to_server(server_address, client_socket, test, test, myVector);
+                std::cout << "joined" << std::endl;
+                break;
+            case evHelp:
+                std::cout << "Some help info" << std::endl;
+                break;
+            case evEnd:
+                say_bye(server_address, client_socket);
+                std::cout << "Exiting" << std::endl;
+                return false;
+            case evRename:
+                std::cout << "renamed" << std::endl;
+                break;
 
-        if (!auth && value != evHelp) {
-            std::cout << "You should sign in before doing anything" << std::endl;
-        } else {
-
-            sem_wait(sent_messages);
-            myVector->push_back(*count);
-            myVector->push_back(0);
-            sem_post(sent_messages);
-
-            auto it1 = std::find(myVector->begin(), myVector->end(), 65535);
-            auto it2 = std::find(myVector->begin(), myVector->end(), 65266);
-            if (it1 != myVector->end()) {
-                *it1 = 0;
-            }
-            if (it2 != myVector->end()) {
-                *it2 = 0;
-            }
-
-            switch (value) {
-                case evAuth:
-                    if (!*auth) {
-                        *auth = true;
-                        auth_to_server(server_address, client_socket, test, test, myVector);
-                        std::cout << "authed" << std::endl;
-                    } else {
-                        std::cout << "You already authed to server" << std::endl;
-                        auth_to_server(server_address, client_socket, test, test, myVector);
-                    }
-                    break;
-                case evJoin:
-                    std::cout << "joined" << std::endl;
-                    break;
-                case evHelp:
-                    std::cout << "help called" << std::endl;
-                    break;
-                case evEnd:
-                    std::cout << "Exiting" << std::endl;
-                    return false;
-                case evRename:
-                    std::cout << "renamed" << std::endl;
-                    break;
-            }
         }
     } else {
-        if (!auth) {
-            std::cout << "You should sign in before doing anything" << std::endl;
+        if (!*auth) {
+            std::cout << "Sign in before doing anything" << std::endl;
         } else {
-            sem_wait(sent_messages);
-            myVector->push_back(*count);
-            myVector->push_back(0);
-            sem_post(sent_messages);
-
-            auto it1 = std::find(myVector->begin(), myVector->end(), 65535);
-            auto it2 = std::find(myVector->begin(), myVector->end(), 65266);
-            if (it1 != myVector->end()) {
-                *it1 = 0;
-            }
-            if (it2 != myVector->end()) {
-                *it2 = 0;
-            }
-
             send_msg(server_address, client_socket, test, userInput, false, myVector);
             std::cout << "send msg" << std::endl;
         }
+
     }
     return true;
 }
@@ -205,14 +152,6 @@ static bool Init_values() {
     String_to_values["/rename"] = evRename;
     String_to_values["/help"] = evHelp;
     String_to_values["exit"] = evEnd;
-
-//    boost::interprocess::shared_memory_object::remove("20");
-//    boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "20", 1024);
-//    chat = segment.construct<bool>("chat")(true);
-//    auth = segment.construct<bool>("auth")(false);
-//    open_state = segment.construct<bool>("open_state")(false);
-//    error = segment.construct<bool>("error")(false);
-//    end = segment.construct<bool>("end")(false);
 
     if (((sent_messages = sem_open("sent", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) ||
         ((counter_stop = sem_open("counterr", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED)) {
