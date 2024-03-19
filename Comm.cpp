@@ -46,12 +46,13 @@ int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf,
     return bytes_received;
 }
 
-void listen_on_socket(sockaddr_in server_address, int client_socket) {
+void listen_on_socket(sockaddr_in server_address, int client_socket, SharedVector *myVector) {
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;
     uint8_t buf[2048];
     size_t len = sizeof(buf);
+    boost::interprocess::shared_memory_object::remove("117");
     boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "117", 1024);
     bool *listen_on_port = segment_bool.construct<bool>("listening")(true);
 
@@ -73,7 +74,7 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
                 if (message_length <= 0)
                     std::cout << "Problem with message" << std::endl;
 
-                if (!decipher_the_message(buf, message_length))
+                if (!decipher_the_message(buf, message_length, myVector))
                     *listen_on_port = false;
 
                 kill(getpid(), SIGKILL);
@@ -86,7 +87,4 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
         segment_bool.destroy<bool>("listening");
         boost::interprocess::shared_memory_object::remove("117");
     }
-//    else{
-//        std::cout<<"Helper socket exited"<<std::endl;
-//    }
 }

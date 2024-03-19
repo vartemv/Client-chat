@@ -16,22 +16,23 @@
 #include <semaphore.h>
 #include <chrono>
 #include <thread>
+typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
+typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
-void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name);
+void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name, SharedVector *myVector);
 
-void say_bye(sockaddr_in server_address, int client_socket);
+void say_bye(sockaddr_in server_address, int client_socket, SharedVector *myVector);
 
-void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name);
+void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name, SharedVector *myVector);
 
-void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error);
+void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error, SharedVector *myVector);
 
-bool decipher_the_message(uint8_t *buf, int message_length);
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector);
 
 void increment_counter();
 
-typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
-typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
-extern SharedVector *myVector;
+
+//extern SharedVector *myVector;
 extern sem_t *sent_messages;
 extern sem_t *counter_stop;
 extern uint16_t *count;
@@ -136,9 +137,11 @@ typedef struct MsgPackets : public Packets {
         b += sizeof(ID);
 
         memcpy(b, DisplayName.c_str(), DisplayName.length());
+        b[DisplayName.length()] = '\0';
         b += DisplayName.length() + 1;
 
         memcpy(b, MessageContents.c_str(), MessageContents.length());
+        b[MessageContents.length()] = '\0';
         b += MessageContents.length() + 1;
         return sizeof(this->MessageType) + sizeof(ID) + DisplayName.length() + 1 + MessageContents.length() + 1;
     }
@@ -169,12 +172,15 @@ typedef struct AuthPackets : public Packets {
         b += sizeof(ID);
 
         memcpy(b, Username.c_str(), Username.length());
+        b[Username.length()] = '\0';
         b += Username.length() + 1;
 
         memcpy(b, DisplayName.c_str(), DisplayName.length());
+        b[DisplayName.length()] = '\0';
         b += DisplayName.length() + 1;
 
         memcpy(b, Secret.c_str(), Secret.length());
+        b[Secret.length()] = '\0';
         b += Secret.length() + 1;
         return sizeof(this->MessageType) + sizeof(ID) + Username.length() + 1 + DisplayName.length() + 1 +
                Secret.length() + 1;

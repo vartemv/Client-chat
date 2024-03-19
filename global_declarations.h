@@ -12,7 +12,7 @@
 #ifndef IPK_CPP_GLOBAL_QUEUES_H
 #define IPK_CPP_GLOBAL_QUEUES_H
 
-bool handle_chat(std::string &userInput);
+bool handle_chat(std::string &userInput, SharedVector *myVector);
 
 static bool Init_values();
 

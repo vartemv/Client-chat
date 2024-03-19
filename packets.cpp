@@ -12,7 +12,8 @@ void increment_counter() {
     sem_post(counter_stop);
 }
 
-bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int len, int address_size, sockaddr_in server_address){
+bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int len, int address_size,
+                         sockaddr_in server_address, SharedVector *myVector) {
     long bytes_tx;
     for (int i = 0; i < 3; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
@@ -20,13 +21,13 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
         auto it = std::find(myVector->begin(), myVector->end(), counter);
         sem_post(sent_messages);
         if (it != myVector->end()) {
-            if(std::next(it)!= myVector->end() && *std::next(it) != 1){
-                std::cout<<"Not confirmed, sending again"<< std::endl;
+            if (std::next(it) != myVector->end() && *std::next(it) != 1) {
+                std::cout << "Not confirmed, sending again" << std::endl;
                 bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address,
                                   address_size);
                 if (bytes_tx < 0) perror("ERROR: sendto");
-            }else if(*std::next(it) == 1){
-                std::cout<<"Message confirmed"<<std::endl;
+            } else if (*std::next(it) == 1) {
+                std::cout << "Message confirmed" << std::endl;
                 return true;
             }
         } else {
@@ -37,7 +38,8 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
     return false;
 }
 
-void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name) {
+void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name,
+                    SharedVector *myVector) {
     uint8_t buf_out[256];
     //uint8_t buf_in[256];
 
@@ -58,7 +60,7 @@ void auth_to_server(sockaddr_in server_address, int client_socket, std::string &
                            address_size);
     if (bytes_tx < 0) perror("ERROR: sendto");
 
-    waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address);
+    waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address, myVector);
 
 }
 
@@ -75,7 +77,8 @@ void say_bye(sockaddr_in server_address, int client_socket) {
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &d_name) {
+void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &d_name,
+                    SharedVector *myVector) {
     uint8_t buf[256];
 
     JoinPacket join(0x03, *count, ch_id, d_name);
@@ -87,7 +90,8 @@ void join_to_server(sockaddr_in server_address, int client_socket, std::string &
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error) {
+void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
+              SharedVector *myVector) {
     uint8_t buf_out[1250];
 
     MsgPacket message(error ? 0xFE : 0x04, *count, msg, disp_name);
@@ -112,39 +116,55 @@ void read_msg_bytes(uint8_t *buf, int message_length) {
     std::cout << out_str << std::endl;
 }
 
-void confirm_id_from_vector(uint8_t *buf) {
+void confirm_id_from_vector(uint8_t *buf, SharedVector *myVector) {
     int result = buf[1] << 8 | buf[2];
 
     result = ntohs(result);
     sem_wait(sent_messages);
     auto it = std::find(myVector->begin(), myVector->end(), result);
-    *std::next(it) = 1;
+    if (it != myVector->end()) {
+        *std::next(it) = 1;
+    }else{
+        std::cout<<"Dont exist confirm " << result << std::endl;
+    }
     sem_post(sent_messages);
 }
 
-void delete_id_from_vector(uint8_t *buf) {
+void delete_id_from_vector(uint8_t *buf, SharedVector *myVector) {
 
     int result = buf[4] << 8 | buf[5];
     //std::cout<<"RefId is "<<result<<std::endl;
     result = ntohs(result);
     sem_wait(sent_messages);
     auto it = std::find(myVector->begin(), myVector->end(), result);
-    it = myVector->erase(it);  // erase current item and increment iterator
-    myVector->erase(it);
+    if (it != myVector->end()) {
+        for(const auto &item : *myVector) {
+            std::cout << item << ' ';
+        }
+        std::cout << '\n';
+        it = myVector->erase(it);  // erase current item and increment iterator
+        myVector->erase(it);
+        for(const auto &item : *myVector) {
+            std::cout << item << ' ';
+        }
+        std::cout << '\n';
+    } else {
+        std::cout << "Don't exist in reply" << result << std::endl;
+    }
     sem_post(sent_messages);
 }
 
-bool decipher_the_message(uint8_t *buf, int message_length) {
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector) {
     std::cout << "Message accepted. Processing..." << std::endl;
 
     switch (buf[0]) {
         case 0x00://Confirm
-            confirm_id_from_vector(buf);
+            confirm_id_from_vector(buf, myVector);
             std::cout << "Confirm" << std::endl;
             //return false;
             break;
         case 0x01://REPLY
-            delete_id_from_vector(buf);
+            delete_id_from_vector(buf, myVector);
             std::cout << "Reply" << std::endl;
             break;
         case 0x04://MSG
