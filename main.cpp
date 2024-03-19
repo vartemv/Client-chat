@@ -4,8 +4,8 @@
 
 //Declaration of shared memory for vector and semaphores
 
-boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "71", 1024);
-boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "72",
+boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "115", 1024);
+boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "116",
                                                               65536);
 const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
 SharedVector *myVector = segment_for_vector.construct<SharedVector>("Myctor")(alloc_inst);
@@ -19,6 +19,32 @@ int main() {
     ftruncate(shm_fd, sizeof(uint16_t));
     count = (uint16_t *) mmap(0, sizeof(uint16_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     *count = 0;
+
+//    pid_t pid13 = fork();
+//
+//    if (pid13 == 0){
+//        pid_t pid14 = fork();
+//        if (pid14 == 0){
+//            for(int i = 0; i<5; i++){
+//                int pid15 = fork();
+//                if(pid15 == 0){
+//                    myVector->push_back(*count);
+//                    myVector->push_back(0);
+//                    *count+=1;
+//                    for(const uint16_t &item : *myVector) {
+//                        std::cout << item << ' ';
+//                    }
+//                    std::cout << std::endl;
+//                }else{
+//                    break;
+//                }
+//            }
+//        }
+//    }
+//
+//
+//    while (wait(nullptr) > 0);
+//    return 1;
 
     if (!Init_values())
         return 1;
@@ -61,15 +87,15 @@ int main() {
         listen_on_socket(server_address, client_socket);
     }
 
-    if (pid1 == 0)
-        std::cout << "socket exited" << std::endl;
+//    if (pid1 == 0)
+//        std::cout << "socket exited" << std::endl;
 
     while (wait(nullptr) > 0);
 
     //TODO Cleanup function
     close(client_socket);
-    boost::interprocess::shared_memory_object::remove("71");
-    boost::interprocess::shared_memory_object::remove("72");
+    boost::interprocess::shared_memory_object::remove("115");
+    boost::interprocess::shared_memory_object::remove("116");
     //boost::interprocess::shared_memory_object::remove("Myector");
     segment.destroy<bool>("chat");
     segment.destroy<bool>("auth");
@@ -91,7 +117,7 @@ int main() {
 
 bool handle_chat(std::string &userInput) {
     auto it = String_to_values.find(userInput);
-    std::string test = "test";
+    std::string test = "xveren00";
 
     if (it != String_to_values.end()) {
         int value = it->second;

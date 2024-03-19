@@ -114,6 +114,7 @@ void read_msg_bytes(uint8_t *buf, int message_length) {
 
 void confirm_id_from_vector(uint8_t *buf) {
     int result = buf[1] << 8 | buf[2];
+
     result = ntohs(result);
     sem_wait(sent_messages);
     auto it = std::find(myVector->begin(), myVector->end(), result);
@@ -122,7 +123,9 @@ void confirm_id_from_vector(uint8_t *buf) {
 }
 
 void delete_id_from_vector(uint8_t *buf) {
-    int result = buf[5] << 8 | buf[6];
+
+    int result = buf[4] << 8 | buf[5];
+    //std::cout<<"RefId is "<<result<<std::endl;
     result = ntohs(result);
     sem_wait(sent_messages);
     auto it = std::find(myVector->begin(), myVector->end(), result);
@@ -137,25 +140,25 @@ bool decipher_the_message(uint8_t *buf, int message_length) {
     switch (buf[0]) {
         case 0x00://Confirm
             confirm_id_from_vector(buf);
-            std::cout << "confirm" << std::endl;
+            std::cout << "Confirm" << std::endl;
             //return false;
             break;
         case 0x01://REPLY
             delete_id_from_vector(buf);
-            std::cout << "reply" << std::endl;
+            std::cout << "Reply" << std::endl;
             break;
         case 0x04://MSG
             read_msg_bytes(buf, message_length);
             return false;
             //break;
         case 0xFE://ERR
-            std::cout << "err" << std::endl;
+            std::cout << "Err" << std::endl;
             break;
         case 0xFF://BYE
-            std::cout << "bye" << std::endl;
+            std::cout << "Bye" << std::endl;
             return false;
         default:
-            std::cout << "def" << std::endl;
+            std::cout << "Def" << std::endl;
             break;
     }
     return true;

@@ -52,7 +52,7 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
     fds[0].events = POLLIN;
     uint8_t buf[2048];
     size_t len = sizeof(buf);
-    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "73", 1024);
+    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "117", 1024);
     bool *listen_on_port = segment_bool.construct<bool>("listening")(true);
 
     pid_t main_id = getpid();
@@ -84,7 +84,7 @@ void listen_on_socket(sockaddr_in server_address, int client_socket) {
     }
     if (getpid() == main_id) {
         segment_bool.destroy<bool>("listening");
-        boost::interprocess::shared_memory_object::remove("73");
+        boost::interprocess::shared_memory_object::remove("117");
     }
 //    else{
 //        std::cout<<"Helper socket exited"<<std::endl;
