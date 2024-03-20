@@ -1,19 +1,21 @@
-#include "Comm.h"
 #include "global_declarations.h"
-#include <sys/wait.h>
-#include <algorithm>
 
-//Declaration of shared memory for vector and semaphores
-//
 sem_t *sent_messages;
 sem_t *counter_stop;
 uint16_t *count;
+bool *open_state;
+bool *error;
+bool *end;
+bool *auth;
 
-int main() {
+int main(int argc, char *argv[]) {
+
+    if (!get_parameters(argc, argv))
+        return 1;
 
     int shm_fd = shm_open("MyShareMemorvalue", O_CREAT | O_RDWR, 0666);
     ftruncate(shm_fd, sizeof(uint16_t));
-    count = (uint16_t *) mmap(0, sizeof(uint16_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    count = (uint16_t *) mmap(nullptr, sizeof(uint16_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     *count = 0;
 
     boost::interprocess::shared_memory_object::remove("21");
@@ -24,6 +26,22 @@ int main() {
 
     boost::interprocess::shared_memory_object::remove("20");
     boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "20", 1024);
+
+    boost::interprocess::shared_memory_object::remove("UserName");
+    boost::interprocess::managed_shared_memory segment_for_string_un(boost::interprocess::create_only, "UserName", 1024);
+    // Create vector in the segment with initializing allocator
+    shm_vector* vector_UN = segment_for_string_un.construct<shm_vector>("SharedVector_UN")(segment_for_string_un.get_segment_manager());
+
+    boost::interprocess::shared_memory_object::remove("DisplayName");
+    boost::interprocess::managed_shared_memory segment_for_string(boost::interprocess::create_only, "DisplayName", 1024);
+    // Create vector in the segment with initializing allocator
+    shm_vector* vector_DN = segment_for_string.construct<shm_vector>("SharedVector_DN")(segment_for_string.get_segment_manager());
+
+    boost::interprocess::shared_memory_object::remove("Ch_ID");
+    boost::interprocess::managed_shared_memory segment_for_channel(boost::interprocess::create_only, "Ch_ID", 1024);
+    // Create vector in the segment with initializing allocator
+    shm_vector* vector_CD = segment_for_string.construct<shm_vector>("SharedVector_CD")(segment_for_string.get_segment_manager());
+
     chat = segment.construct<bool>("chat")(true);
     auth = segment.construct<bool>("auth")(false);
     open_state = segment.construct<bool>("open_state")(false);
@@ -54,7 +72,7 @@ int main() {
                 if (!userInput.empty()) {
                     pid_t pid = fork();
                     if (pid == 0) {
-                        if (!handle_chat(userInput, myVector)) {
+                        if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
                             //end_connection_and_cleanup();
                             *chat = false;
                         }
@@ -95,10 +113,24 @@ int main() {
     return 0;
 }
 
+void write_to_vector(shm_vector* vector_string, std::string* source){
+    for (auto c: *source) {
+        vector_string->push_back(c);
+    }
+}
 
-bool handle_chat(std::string &userInput, SharedVector *myVector) {
-    auto it = String_to_values.find(userInput);
-    std::string test = "xveren00";
+
+bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector* vector_string, shm_vector* vector_display, shm_vector* vector_channel) {
+
+    std::istringstream iss(userInput);
+    std::vector<std::string> result;
+    for (std::string s; std::getline(iss, s, ' ');) {
+        result.push_back(s);
+    }
+    auto it = String_to_values.find(result[0]);
+    std::string UserName(vector_string->begin(), vector_string->end());
+    std::string DisplayName (vector_display->begin(), vector_display->end());
+    std::string ChannelID (vector_channel->begin(), vector_channel->end());
 
     if (it != String_to_values.end()) {
         int value = it->second;
@@ -111,34 +143,50 @@ bool handle_chat(std::string &userInput, SharedVector *myVector) {
         }
         switch (value) {
             case evAuth:
+                if (result.size() < 3) {
+                    std::cout << "format is /auth {Username} {DisplayName}";
+                    break;
+                }
+                write_to_vector(vector_string, &result[1]);
+                write_to_vector(vector_display, &result[2]);
                 if (!*auth) {
-                    *auth = true;
-                    auth_to_server(server_address, client_socket, test, test, myVector);
+                    auth_to_server(server_address, client_socket, result[1], result[2], myVector);
+                    if(!*auth)
+                        std::cout << "Not authed" << std::endl;
                 } else {
                     std::cout << "You already authed to server" << std::endl;
                 }
                 break;
             case evJoin:
-                join_to_server(server_address, client_socket, test, test, myVector);
+                if (result.size() < 2) {
+                    std::cout << "format is /join {ChannelID}";
+                    break;
+                }
+                join_to_server(server_address, client_socket, UserName, DisplayName, myVector);
+
                 std::cout << "joined" << std::endl;
                 break;
             case evHelp:
                 std::cout << "Some help info" << std::endl;
                 break;
             case evEnd:
-                say_bye(server_address, client_socket);
+                say_bye(server_address, client_socket, myVector);
                 std::cout << "Exiting" << std::endl;
                 return false;
             case evRename:
+                if (result.size() < 2) {
+                    std::cout << "format is /rename {DisplayName}";
+                    break;
+                }
+                DisplayName = result[1];
                 std::cout << "renamed" << std::endl;
                 break;
-
         }
     } else {
         if (!*auth) {
             std::cout << "Sign in before doing anything" << std::endl;
         } else {
-            send_msg(server_address, client_socket, test, userInput, false, myVector);
+            send_msg(server_address, client_socket, DisplayName, userInput, false, myVector);
             std::cout << "send msg" << std::endl;
         }
 

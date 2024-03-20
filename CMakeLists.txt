@@ -9,4 +9,6 @@ add_executable(ipk_cpp main.cpp
         Comm.h
         packets.cpp
         global_declarations.h
+        chat_handler.h
+        chat_handler.cpp
 )

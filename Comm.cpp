@@ -3,23 +3,23 @@
 //
 #include "Comm.h"
 
-//const char *HOST = "127.0.0.1";
-const char *HOST = "anton5.fit.vutbr.cz";
-uint32_t port_number = 4567;
-uint16_t timeout = 250;
-uint8_t retransmits = 3;
+////const char *HOST = "127.0.0.1";
+//const char *HOST = "anton5.fit.vutbr.cz";
+//uint32_t port_number = 4567;
+//uint16_t timeout = 250;
+//uint8_t retransmits = 3;
 
 sockaddr_in server_connection() {
 
-    struct hostent *server = gethostbyname(HOST);
+    struct hostent *server = gethostbyname(HOST_chat);
     if (server == nullptr) {
-        fprintf(stderr, "ERROR: no such host %s\n", HOST);
+        fprintf(stderr, "ERROR: no such host %s\n", HOST_chat);
         return {};
     }
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(port_number);
+    server_address.sin_port = htons(port);
     memcpy(&server_address.sin_addr.s_addr, server->h_addr, server->h_length);
     return server_address;
 }
@@ -74,7 +74,7 @@ void listen_on_socket(sockaddr_in server_address, int client_socket, SharedVecto
                 if (message_length <= 0)
                     std::cout << "Problem with message" << std::endl;
 
-                if (!decipher_the_message(buf, message_length, myVector))
+                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
                     *listen_on_port = false;
 
                 kill(getpid(), SIGKILL);

@@ -16,20 +16,29 @@
 #include <semaphore.h>
 #include <chrono>
 #include <thread>
+#include "chat_handler.h"
+
 typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
 typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
 void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name, SharedVector *myVector);
 
-void say_bye(sockaddr_in server_address, int client_socket);
+void say_bye(sockaddr_in server_address, int client_socket, SharedVector *myVector);
+
+void send_confirm(sockaddr_in server_address, int client_socket, int ref_id);
 
 void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name, SharedVector *myVector);
 
 void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error, SharedVector *myVector);
 
-bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector);
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in server_address, int client_socket);
 
 void increment_counter();
+
+extern bool *auth;
+extern bool *open_state;
+extern bool *error;
+extern bool *end;
 
 
 //extern SharedVector *myVector;
@@ -69,6 +78,15 @@ typedef struct ConfirmPackets : public Packets {
 
     ConfirmPackets(uint8_t type, uint16_t id, uint16_t ref_id) : Packets(type, id) {
         Ref_MessageID = ref_id;
+    }
+    int construct_message(uint8_t *b) override {
+        memcpy(b, &this->MessageType, sizeof(this->MessageType));
+        b += sizeof(this->MessageType);
+
+        uint16_t ID = this->Ref_MessageID;
+        memcpy(b, &ID, sizeof(ID));
+        b += sizeof(ID);
+        return sizeof(this->MessageType)+sizeof (ID);
     }
 
 } ConfirmPacket;
