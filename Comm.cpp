@@ -9,19 +9,17 @@
 //uint16_t timeout = 250;
 //uint8_t retransmits = 3;
 
-sockaddr_in server_connection() {
-
+void server_connection(sockaddr_in* server_address) {
     struct hostent *server = gethostbyname(HOST_chat);
     if (server == nullptr) {
-        fprintf(stderr, "ERROR: no such host %s\n", HOST_chat);
-        return {};
+        fprintf(stderr,"ERROR: no such host %s\n", HOST_chat);
+        return;
     }
-    struct sockaddr_in server_address;
-    memset(&server_address, 0, sizeof(server_address));
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(port);
-    memcpy(&server_address.sin_addr.s_addr, server->h_addr, server->h_length);
-    return server_address;
+
+    memset(server_address, 0, sizeof(*server_address));
+    server_address->sin_family = AF_INET;
+    server_address->sin_port = htons(port);
+    memcpy(&server_address->sin_addr.s_addr, server->h_addr, server->h_length);
 }
 
 int create_socket() {
@@ -35,10 +33,10 @@ int create_socket() {
     return client_socket;
 }
 
-int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf, size_t len) {
-    socklen_t server_address_length = sizeof(server_address);
-    int bytes_received = recvfrom(client_socket, buf, len, 0, (struct sockaddr *) &server_address,
-                                  &server_address_length);
+int receive_message(sockaddr_in* client_address, int client_socket, uint8_t *buf, size_t len) {
+    socklen_t client_address_length = sizeof(*client_address);
+    int bytes_received = recvfrom(client_socket, buf, len, 0, (struct sockaddr *)client_address,
+                                  &client_address_length);
     if (bytes_received <= 0) {
         perror("ERROR: recvfrom");
         return 0;
@@ -46,7 +44,7 @@ int receive_message(sockaddr_in server_address, int client_socket, uint8_t *buf,
     return bytes_received;
 }
 
-void listen_on_socket(sockaddr_in server_address, int client_socket, SharedVector *myVector) {
+void listen_on_socket(sockaddr_in* server_address, int client_socket, SharedVector *myVector) {
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;

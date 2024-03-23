@@ -8,6 +8,7 @@ bool *error;
 bool *end;
 bool *auth;
 
+
 int main(int argc, char *argv[]) {
 
     if (!get_parameters(argc, argv))
@@ -17,6 +18,27 @@ int main(int argc, char *argv[]) {
     ftruncate(shm_fd, sizeof(uint16_t));
     count = (uint16_t *) mmap(nullptr, sizeof(uint16_t), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     *count = 0;
+
+    int fd = shm_open("/my_shm", O_CREAT | O_RDWR, 0666);
+    if (fd == -1) {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Set the size of the shared memory object */
+    if (ftruncate(fd, sizeof(sockaddr_in)) == -1) {
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Map the shared memory object into this process's address space */
+    server_address = (sockaddr_in *) mmap(NULL, sizeof(sockaddr_in),
+                                          PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (server_address == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+    close(fd);
 
     boost::interprocess::shared_memory_object::remove("21");
     boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "21",
@@ -28,19 +50,24 @@ int main(int argc, char *argv[]) {
     boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "20", 1024);
 
     boost::interprocess::shared_memory_object::remove("UserName");
-    boost::interprocess::managed_shared_memory segment_for_string_un(boost::interprocess::create_only, "UserName", 1024);
+    boost::interprocess::managed_shared_memory segment_for_string_un(boost::interprocess::create_only, "UserName",
+                                                                     1024);
     // Create vector in the segment with initializing allocator
-    shm_vector* vector_UN = segment_for_string_un.construct<shm_vector>("SharedVector_UN")(segment_for_string_un.get_segment_manager());
+    shm_vector *vector_UN = segment_for_string_un.construct<shm_vector>("SharedVector_UN")(
+            segment_for_string_un.get_segment_manager());
 
     boost::interprocess::shared_memory_object::remove("DisplayName");
-    boost::interprocess::managed_shared_memory segment_for_string(boost::interprocess::create_only, "DisplayName", 1024);
+    boost::interprocess::managed_shared_memory segment_for_string(boost::interprocess::create_only, "DisplayName",
+                                                                  1024);
     // Create vector in the segment with initializing allocator
-    shm_vector* vector_DN = segment_for_string.construct<shm_vector>("SharedVector_DN")(segment_for_string.get_segment_manager());
+    shm_vector *vector_DN = segment_for_string.construct<shm_vector>("SharedVector_DN")(
+            segment_for_string.get_segment_manager());
 
     boost::interprocess::shared_memory_object::remove("Ch_ID");
     boost::interprocess::managed_shared_memory segment_for_channel(boost::interprocess::create_only, "Ch_ID", 1024);
     // Create vector in the segment with initializing allocator
-    shm_vector* vector_CD = segment_for_string.construct<shm_vector>("SharedVector_CD")(segment_for_string.get_segment_manager());
+    shm_vector *vector_CD = segment_for_string.construct<shm_vector>("SharedVector_CD")(
+            segment_for_string.get_segment_manager());
 
     chat = segment.construct<bool>("chat")(true);
     auth = segment.construct<bool>("auth")(false);
@@ -78,8 +105,8 @@ int main(int argc, char *argv[]) {
                         }
                         userInput.clear();
                         //std::cout << "helper chat exited" << std::endl;
-                        break;
-                        //kill(getpid(), SIGKILL);
+                        //break;
+                        kill(getpid(), SIGKILL);
                     }
                 }
             }
@@ -104,6 +131,17 @@ int main(int argc, char *argv[]) {
     segment_for_vector.destroy_ptr(myVector);
     munmap(count, sizeof(uint16_t));
     close(shm_fd);
+    if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
+        perror("Error un-mapping the shared memory segment");
+        exit(EXIT_FAILURE);
+    }
+
+// Close and delete the shared memory object
+
+    if (shm_unlink("/my_shm") == -1) {
+        perror("Error unlinking the shared memory segment");
+        exit(EXIT_FAILURE);
+    }
     shm_unlink("MyShareMemorvalue");
     sem_unlink("sent");
     sem_unlink("counterr");
@@ -113,14 +151,15 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void write_to_vector(shm_vector* vector_string, std::string* source){
+void write_to_vector(shm_vector *vector_string, std::string *source) {
     for (auto c: *source) {
         vector_string->push_back(c);
     }
 }
 
 
-bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector* vector_string, shm_vector* vector_display, shm_vector* vector_channel) {
+bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vector_string, shm_vector *vector_display,
+                 shm_vector *vector_channel) {
 
     std::istringstream iss(userInput);
     std::vector<std::string> result;
@@ -129,8 +168,8 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector* vec
     }
     auto it = String_to_values.find(result[0]);
     std::string UserName(vector_string->begin(), vector_string->end());
-    std::string DisplayName (vector_display->begin(), vector_display->end());
-    std::string ChannelID (vector_channel->begin(), vector_channel->end());
+    std::string DisplayName(vector_display->begin(), vector_display->end());
+    std::string ChannelID(vector_channel->begin(), vector_channel->end());
 
     if (it != String_to_values.end()) {
         int value = it->second;
@@ -151,7 +190,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector* vec
                 write_to_vector(vector_display, &result[2]);
                 if (!*auth) {
                     auth_to_server(server_address, client_socket, result[1], result[2], myVector);
-                    if(!*auth)
+                    if (!*auth)
                         std::cout << "Not authed" << std::endl;
                 } else {
                     std::cout << "You already authed to server" << std::endl;
@@ -162,7 +201,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector* vec
                     std::cout << "format is /join {ChannelID}";
                     break;
                 }
-                join_to_server(server_address, client_socket, UserName, DisplayName, myVector);
+                join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
 
                 std::cout << "joined" << std::endl;
                 break;
@@ -207,7 +246,8 @@ static bool Init_values() {
         return false;
     }
 
-    server_address = server_connection();
+//    server_address = server_connection();
+    server_connection(server_address);
     client_socket = create_socket();
     return true;
 }

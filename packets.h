@@ -21,17 +21,17 @@
 typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
 typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
-void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name, SharedVector *myVector);
+void auth_to_server(sockaddr_in* server_address, int client_socket, std::string &u_n, std::string &disp_name, SharedVector *myVector);
 
-void say_bye(sockaddr_in server_address, int client_socket, SharedVector *myVector);
+void say_bye(sockaddr_in* server_address, int client_socket, SharedVector *myVector);
 
-void send_confirm(sockaddr_in server_address, int client_socket, int ref_id);
+void send_confirm(sockaddr_in* server_address, int client_socket, int ref_id);
 
-void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &disp_name, SharedVector *myVector);
+void join_to_server(sockaddr_in* server_address, int client_socket, std::string &ch_id, std::string &disp_name, SharedVector *myVector);
 
-void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error, SharedVector *myVector);
+void send_msg(sockaddr_in* server_address, int client_socket, std::string &disp_name, std::string &msg, bool error, SharedVector *myVector);
 
-bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in server_address, int client_socket);
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in* server_address, int client_socket);
 
 void increment_counter();
 
@@ -45,6 +45,7 @@ extern bool *end;
 extern sem_t *sent_messages;
 extern sem_t *counter_stop;
 extern uint16_t *count;
+//extern uint16_t *count;
 
 #endif //IPK_CPP_PACKETS_H
 
@@ -125,9 +126,11 @@ typedef struct JoinPackets : public Packets {
         b += sizeof(ID);
 
         memcpy(b, ChannelID.c_str(), ChannelID.length());
+        b[ChannelID.length()] = '\0';
         b += ChannelID.length() + 1;
 
         memcpy(b, DisplayName.c_str(), DisplayName.length());
+        b[DisplayName.length()] = '\0';
         b += DisplayName.length() + 1;
         return sizeof(this->MessageType) + sizeof(ID) + ChannelID.length() + 1 + DisplayName.length() + 1;
     }

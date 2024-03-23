@@ -12,8 +12,8 @@ void increment_counter() {
     sem_post(counter_stop);
 }
 
-bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int len, int address_size,
-                         sockaddr_in server_address, SharedVector *myVector) {
+bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int len,
+                         sockaddr_in *server_address, SharedVector *myVector) {
     long bytes_tx;
     for (int i = 0; i < retransmissions; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(timeout_chat));
@@ -23,21 +23,21 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
         if (it != myVector->end()) {
             if (std::next(it) != myVector->end() && *std::next(it) != 1) {
                 std::cout << "Not confirmed, sending again" << std::endl;
-                bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address,
-                                  address_size);
+                bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
+                                  sizeof(*server_address));
                 if (bytes_tx < 0) perror("ERROR: sendto");
             } else if (*std::next(it) == 1) {
                 std::cout << "Message confirmed" << std::endl;
                 return true;
             }
-        }else{
+        } else {
             return true;
         }
     }
     return false;
 }
 
-void add_to_sent_messages(SharedVector *myVector, int counter){
+void add_to_sent_messages(SharedVector *myVector, int counter) {
     sem_wait(sent_messages);
     myVector->push_back(counter);
     myVector->push_back(0);
@@ -53,7 +53,7 @@ void add_to_sent_messages(SharedVector *myVector, int counter){
     }
 }
 
-void auth_to_server(sockaddr_in server_address, int client_socket, std::string &u_n, std::string &disp_name,
+void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     SharedVector *myVector) {
     uint8_t buf_out[256];
     //uint8_t buf_in[256];
@@ -65,27 +65,30 @@ void auth_to_server(sockaddr_in server_address, int client_socket, std::string &
 
     int len = authPacket.construct_message(buf_out);
 
-    printf("INFO: Server socket: %s : %d \n",
-           inet_ntoa(server_address.sin_addr),
-           ntohs(server_address.sin_port));
+//    printf("INFO: Server socket: %s : %d \n",
+//           inet_ntoa(server_address->sin_addr),
+//           ntohs(server_address->sin_port));
 
-    int address_size = sizeof(server_address);
+    int address_size = sizeof(*server_address);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address,
+    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
                            address_size);
-    if (bytes_tx < 0) perror("ERROR: sendto");
+    if (bytes_tx < 0) {
+        perror("ERROR: sendto");
+        std::cout<<"auth problem"<< std::endl;
+    }
 
     add_to_sent_messages(myVector, local_count);
 
-    if(!waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address, myVector))
-        std::cout << "Couldn't auth to server, try again"<<std::endl;
+    if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+        std::cout << "Couldn't auth to server, try again" << std::endl;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-    (!*auth) ? std::cout<<"Auth not succesfull, try again"<<std::endl : std::cout<<"Auth succesful"<<std::endl;
+    //(!*auth) ? std::cout << "Auth not succesfull, try again" << std::endl : std::cout << "Auth succesful" << std::endl;
 }
 
-void say_bye(sockaddr_in server_address, int client_socket, SharedVector *myVector) {
+void say_bye(sockaddr_in* server_address, int client_socket, SharedVector *myVector) {
 
     uint8_t buf[3];
 
@@ -95,29 +98,32 @@ void say_bye(sockaddr_in server_address, int client_socket, SharedVector *myVect
 
     int len = bye.construct_message(buf);
 
-    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) &server_address, sizeof(server_address));
+    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
     if (bytes_tx < 0) perror("ERROR: sendto");
-
 
 
     add_to_sent_messages(myVector, local_counter);
 
 }
 
-void join_to_server(sockaddr_in server_address, int client_socket, std::string &ch_id, std::string &d_name,
+void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &d_name,
                     SharedVector *myVector) {
     uint8_t buf[256];
 
+
+    int local_count = *count;
     JoinPacket join(0x03, *count, ch_id, d_name);
     increment_counter();
 
     int len = join.construct_message(buf);
 
-    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) &server_address, sizeof(server_address));
+    add_to_sent_messages(myVector, local_count);
+
+    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
+void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
               SharedVector *myVector) {
     uint8_t buf_out[1250];
 
@@ -128,32 +134,33 @@ void send_msg(sockaddr_in server_address, int client_socket, std::string &disp_n
 
     int len = message.construct_message(buf_out);
 
-    int address_size = sizeof(server_address);
+    socklen_t address_size = sizeof(*server_address);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address, address_size);
+    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address, address_size);
     if (bytes_tx < 0) perror("ERROR: sendto");
 
     add_to_sent_messages(myVector, local_count);
 
-
-    waiting_for_confirm(local_count, client_socket, buf_out, len, address_size, server_address, myVector);
-
+    waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector);
 }
 
-void send_confirm(sockaddr_in server_address, int client_socket, int ref_id){
+void send_confirm(sockaddr_in *server_address, int client_socket, int ref_id) {
     uint8_t buf_out[4];
+
+//    printf("sending message to %s on port %d\n",
+//           inet_ntoa(server_address->sin_addr), ntohs(server_address->sin_port));
 
     ConfirmPacket confirm(0x00, *count, ref_id);
 
     int len = confirm.construct_message(buf_out);
 
-    int address_size = sizeof(server_address);
+    socklen_t address_size = sizeof(*server_address);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) &server_address, address_size);
+    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address, address_size);
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-int read_packet_id(uint8_t *buf){
+int read_packet_id(uint8_t *buf) {
     int result = buf[1] << 8 | buf[2];
     return ntohs(result);
 }
@@ -171,12 +178,13 @@ void read_msg_bytes(uint8_t *buf, int message_length) {
     std::cout << out_str << std::endl;
 }
 
-void identify_reply_type(uint8_t *buf){
+void identify_reply_type(uint8_t *buf) {
     int result = buf[3];
     //std::cout << "result is "<<result << std::endl;
-    if(!*open_state){
+    if (!*open_state) {
         //std::cout << "result is "<<result << std::endl;
         (!result) ? *auth = false : *auth = true;
+        (!result) ? *open_state = true : *open_state = false;
     }
 }
 
@@ -188,19 +196,24 @@ void confirm_id_from_vector(uint8_t *buf, SharedVector *myVector) {
     auto it = std::find(myVector->begin(), myVector->end(), result);
     if (it != myVector->end()) {
         *std::next(it) = 1;
-    }else{
+    } else {
         //std::cout<<"Dont exist confirm " << result << std::endl;
     }
     sem_post(sent_messages);
 }
 
-void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in server_address, int client_socket) {
+void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in *server_address, int client_socket) {
 
     int result = buf[4] << 8 | buf[5];
     //std::cout<<"RefId is "<<result<<std::endl;
     result = ntohs(result);
     sem_wait(sent_messages);
     auto it = std::find(myVector->begin(), myVector->end(), result);
+    std::cout<<"Before\n";
+    for(const auto &val : *myVector) {
+        std::cout << val << ' ';
+    }
+    std::cout<<"\n";
     if (it != myVector->end()) {
 //        for(const auto &item : *myVector) {
 //            std::cout << item << ' ';
@@ -208,22 +221,28 @@ void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in ser
 //        std::cout << '\n';
         it = myVector->erase(it);  // erase current item and increment iterator
         myVector->erase(it);
-        send_confirm(server_address, client_socket,read_packet_id(buf));
+        send_confirm(server_address, client_socket, read_packet_id(buf));
 //        for(const auto &item : *myVector) {
 //            std::cout << item << ' ';
 //        }
 //        std::cout << '\n';
     }
     sem_post(sent_messages);
+    std::cout<<"After\n";
+    for(const auto &val : *myVector) {
+        std::cout << val << ' ';
+    }
+    std::cout<<"\n";
 }
 
-bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in server_address, int client_socket) {
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
+                          int client_socket) {
     //std::cout << "Message accepted. Processing..." << std::endl;
 
     switch (buf[0]) {
         case 0x00://Confirm
             confirm_id_from_vector(buf, myVector);
-            std::cout << "Confirm" << std::endl;
+            //std::cout << "Confirm" << std::endl;
             //return false;
             break;
         case 0x01://REPLY
@@ -233,7 +252,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
             break;
         case 0x04://MSG
             read_msg_bytes(buf, message_length);
-            send_confirm(server_address, client_socket,read_packet_id(buf));//read_packet_id(buf);
+            send_confirm(server_address, client_socket, read_packet_id(buf));//read_packet_id(buf);
             break;
         case 0xFE://ERR
             std::cout << "Err" << std::endl;

@@ -35,7 +35,7 @@ bool *chat;
 //bool *error;
 //bool *end;
 
-sockaddr_in server_address;
+sockaddr_in* server_address;
 int client_socket;
 
 #endif //IPK_CPP_GLOBAL_QUEUES_H
