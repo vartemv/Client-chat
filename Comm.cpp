@@ -50,9 +50,6 @@ void listen_on_socket(sockaddr_in* server_address, int client_socket, SharedVect
     fds[0].events = POLLIN;
     uint8_t buf[2048];
     size_t len = sizeof(buf);
-    boost::interprocess::shared_memory_object::remove("117");
-    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "117", 1024);
-    bool *listen_on_port = segment_bool.construct<bool>("listening")(true);
 
     pid_t main_id = getpid();
     pid_t pid;
@@ -80,9 +77,5 @@ void listen_on_socket(sockaddr_in* server_address, int client_socket, SharedVect
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
-    }
-    if (getpid() == main_id) {
-        segment_bool.destroy<bool>("listening");
-        boost::interprocess::shared_memory_object::remove("117");
     }
 }

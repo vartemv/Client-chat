@@ -7,7 +7,7 @@ bool *open_state;
 bool *error;
 bool *end;
 bool *auth;
-
+bool *listen_on_port;
 
 int main(int argc, char *argv[]) {
 
@@ -32,13 +32,12 @@ int main(int argc, char *argv[]) {
     }
 
     /* Map the shared memory object into this process's address space */
-    server_address = (sockaddr_in *) mmap(NULL, sizeof(sockaddr_in),
+    server_address = (sockaddr_in *) mmap(nullptr, sizeof(sockaddr_in),
                                           PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (server_address == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
-    close(fd);
 
     boost::interprocess::shared_memory_object::remove("21");
     boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "21",
@@ -66,9 +65,13 @@ int main(int argc, char *argv[]) {
     boost::interprocess::shared_memory_object::remove("Ch_ID");
     boost::interprocess::managed_shared_memory segment_for_channel(boost::interprocess::create_only, "Ch_ID", 1024);
     // Create vector in the segment with initializing allocator
-    shm_vector *vector_CD = segment_for_string.construct<shm_vector>("SharedVector_CD")(
-            segment_for_string.get_segment_manager());
+    shm_vector *vector_CD = segment_for_channel.construct<shm_vector>("SharedVector_CD")(
+            segment_for_channel.get_segment_manager());
 
+    boost::interprocess::shared_memory_object::remove("117");
+    boost::interprocess::managed_shared_memory segment_bool(boost::interprocess::create_only, "117", 1024);
+
+    listen_on_port = segment_bool.construct<bool>("listening")(true);
     chat = segment.construct<bool>("chat")(true);
     auth = segment.construct<bool>("auth")(false);
     open_state = segment.construct<bool>("open_state")(false);
@@ -100,12 +103,9 @@ int main(int argc, char *argv[]) {
                     pid_t pid = fork();
                     if (pid == 0) {
                         if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
-                            //end_connection_and_cleanup();
                             *chat = false;
                         }
                         userInput.clear();
-                        //std::cout << "helper chat exited" << std::endl;
-                        //break;
                         kill(getpid(), SIGKILL);
                     }
                 }
@@ -116,38 +116,40 @@ int main(int argc, char *argv[]) {
         listen_on_socket(server_address, client_socket, myVector);
     }
 
-    while (wait(nullptr) > 0);
-
-    //TODO Cleanup function
-    close(client_socket);
-    boost::interprocess::shared_memory_object::remove("20");
-    boost::interprocess::shared_memory_object::remove("21");
-    segment_for_vector.destroy<SharedVector>("Myytor");
-    segment.destroy<bool>("chat");
-    segment.destroy<bool>("auth");
-    segment.destroy<bool>("open_state");
-    segment.destroy<bool>("error");
-    segment.destroy<bool>("end");
-    segment_for_vector.destroy_ptr(myVector);
-    munmap(count, sizeof(uint16_t));
-    close(shm_fd);
-    if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
-        perror("Error un-mapping the shared memory segment");
-        exit(EXIT_FAILURE);
-    }
+    if(pid1 == 0) {
+        //TODO Cleanup function
+        close(client_socket);
+        boost::interprocess::shared_memory_object::remove("20");
+        boost::interprocess::shared_memory_object::remove("21");
+        segment_bool.destroy<bool>("listening");
+        boost::interprocess::shared_memory_object::remove("117");
+        segment_for_vector.destroy<SharedVector>("Myytor");
+        segment.destroy<bool>("chat");
+        segment.destroy<bool>("auth");
+        segment.destroy<bool>("open_state");
+        segment.destroy<bool>("error");
+        segment.destroy<bool>("end");
+        segment_for_vector.destroy_ptr(myVector);
+        munmap(count, sizeof(uint16_t));
+        close(shm_fd);
+        if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
+            perror("Error un-mapping the shared memory segment");
+            exit(EXIT_FAILURE);
+        }
 
 // Close and delete the shared memory object
 
-    if (shm_unlink("/my_shm") == -1) {
-        perror("Error unlinking the shared memory segment");
-        exit(EXIT_FAILURE);
+        if (shm_unlink("/my_shm") == -1) {
+            perror("Error unlinking the shared memory segment");
+            exit(EXIT_FAILURE);
+        }
+        shm_unlink("MyShareMemorvalue");
+        sem_unlink("sent");
+        sem_unlink("counterr");
+        sem_close(sent_messages);
+        sem_close(counter_stop);
     }
-    shm_unlink("MyShareMemorvalue");
-    sem_unlink("sent");
-    sem_unlink("counterr");
-    sem_close(sent_messages);
-    sem_close(counter_stop);
-    //
+    while (wait(nullptr) > 0);
     return 0;
 }
 
@@ -158,6 +160,20 @@ void write_to_vector(shm_vector *vector_string, std::string *source) {
 }
 
 
+/**
+ * @brief Handles the chat command entered by the user.
+ *
+ * This function parses the user input and executes the corresponding action based on the command.
+ * It also interacts with the server through various helper functions.
+ *
+ * @param[in] userInput The user input string.
+ * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] vector_string Pointer to the shm_vector object for string data.
+ * @param[in] vector_display Pointer to the shm_vector object for display name data.
+ * @param[in] vector_channel Pointer to the shm_vector object for channel ID data.
+ *
+ * @return Returns true to continue handling chat commands, or false to exit the chat application.
+ */
 bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vector_string, shm_vector *vector_display,
                  shm_vector *vector_channel) {
 
@@ -233,6 +249,10 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
     return true;
 }
 
+/**
+ * @brief Initializes the values for the string to enum mapping, semaphore creation, and socket creation
+ * @return true if successful, false otherwise
+ */
 static bool Init_values() {
     String_to_values["/auth"] = evAuth;
     String_to_values["/join"] = evJoin;
@@ -246,7 +266,6 @@ static bool Init_values() {
         return false;
     }
 
-//    server_address = server_connection();
     server_connection(server_address);
     client_socket = create_socket();
     return true;

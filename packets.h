@@ -39,6 +39,7 @@ extern bool *auth;
 extern bool *open_state;
 extern bool *error;
 extern bool *end;
+extern bool *listen_on_port;
 
 
 //extern SharedVector *myVector;
