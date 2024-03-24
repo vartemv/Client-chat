@@ -72,7 +72,8 @@ void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
                 if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
                     *listen_on_port = false;
 
-                kill(getpid(), SIGKILL);
+                //kill(getpid(), SIGKILL);
+                break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
