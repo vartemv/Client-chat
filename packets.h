@@ -23,7 +23,7 @@ typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
 void auth_to_server(sockaddr_in* server_address, int client_socket, std::string &u_n, std::string &disp_name, SharedVector *myVector);
 
-void say_bye(sockaddr_in* server_address, int client_socket, SharedVector *myVector);
+bool say_bye(sockaddr_in* server_address, int client_socket, SharedVector *myVector);
 
 void send_confirm(sockaddr_in* server_address, int client_socket, int ref_id);
 

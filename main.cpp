@@ -218,16 +218,15 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     break;
                 }
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
-
                 std::cout << "joined" << std::endl;
                 break;
             case evHelp:
                 std::cout << "Some help info" << std::endl;
                 break;
             case evEnd:
-                say_bye(server_address, client_socket, myVector);
-                std::cout << "Exiting" << std::endl;
-                return false;
+                if(say_bye(server_address, client_socket, myVector))
+                    return false;
+                break;
             case evRename:
                 if (result.size() < 2) {
                     std::cout << "format is /rename {DisplayName}";

@@ -131,7 +131,7 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
  * @param client_socket The client socket to use for sending the message
  * @param myVector Pointer to the shared vector of sent messages
  */
-void say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
+bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
 
     uint8_t buf[3];
 
@@ -148,8 +148,10 @@ void say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
 
     if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, myVector)) {
         std::cout << "Couldn't terminate the connection to server, try again" << std::endl;
+        return false;
     } else {
         *listen_on_port = false;
+        return true;
     }
 }
 
