@@ -40,7 +40,7 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
                                   sizeof(*server_address));
                 if (bytes_tx < 0) perror("ERROR: sendto");
             } else if (*std::next(it) == 1) {
-                std::cout << "Message confirmed" << std::endl;
+                //std::cout << "Message confirmed" << std::endl;
                 return true;
             }
         } else {
@@ -113,7 +113,7 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
 
     if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
         std::cout << "Couldn't auth to server, try again" << std::endl;
-    else{
+    else {
         *auth = true;
         *open_state = true;
     }
@@ -184,8 +184,8 @@ void join_to_server(sockaddr_in *server_address, int client_socket, std::string 
     long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
     if (bytes_tx < 0) perror("ERROR: sendto");
 
-    if(!waiting_for_confirm(local_count, client_socket, buf, len, server_address, myVector))
-        std::cout<<"Couldn't join the channel specified"<<std::endl;
+    if (!waiting_for_confirm(local_count, client_socket, buf, len, server_address, myVector))
+        std::cout << "Couldn't join the channel specified" << std::endl;
 
 }
 
@@ -207,8 +207,8 @@ void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_
 
     add_to_sent_messages(myVector, local_count);
 
-    if(!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
-        std::cout<<"Message haven't been sent"<<std::endl;
+    if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+        std::cout << "Message haven't been sent" << std::endl;
 }
 
 /**

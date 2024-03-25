@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
         listen_on_socket(server_address, client_socket, myVector);
     }
 
-    if(pid1 == 0) {
+    if (pid1 == 0) {
         //TODO Cleanup function
         close(client_socket);
         boost::interprocess::shared_memory_object::remove("20");
@@ -224,7 +224,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 std::cout << "Some help info" << std::endl;
                 break;
             case evEnd:
-                if(say_bye(server_address, client_socket, myVector))
+                if (say_bye(server_address, client_socket, myVector))
                     return false;
                 break;
             case evRename:

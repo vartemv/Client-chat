@@ -92,7 +92,7 @@ bool get_parameters(int argc, char *argv[]) {
         }
     }
 
-    if(!specified_host || !choosed_protocol) {
+    if (!specified_host || !choosed_protocol) {
         std::cout << "You didnt specify host or protocol";
         return false;
     }
