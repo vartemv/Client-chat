@@ -159,7 +159,6 @@ void write_to_vector(shm_vector *vector_string, std::string *source) {
     }
 }
 
-
 /**
  * @brief Handles the chat command entered by the user.
  *
@@ -199,12 +198,12 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
         switch (value) {
             case evAuth:
                 if (result.size() < 3) {
-                    std::cout << "format is /auth {Username} {DisplayName}";
+                    std::cout << "format is /auth {Username} {DisplayName}"<<std::endl;
                     break;
                 }
-                write_to_vector(vector_string, &result[1]);
-                write_to_vector(vector_display, &result[2]);
                 if (!*auth) {
+                    write_to_vector(vector_string, &result[1]);
+                    write_to_vector(vector_display, &result[2]);
                     auth_to_server(server_address, client_socket, result[1], result[2], myVector);
                     if (!*auth)
                         std::cout << "Not authed" << std::endl;
@@ -214,11 +213,10 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 break;
             case evJoin:
                 if (result.size() < 2) {
-                    std::cout << "format is /join {ChannelID}";
+                    std::cout << "format is /join {ChannelID}" << std::endl;
                     break;
                 }
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
-                std::cout << "joined" << std::endl;
                 break;
             case evHelp:
                 std::cout << "Some help info" << std::endl;
@@ -229,19 +227,20 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 break;
             case evRename:
                 if (result.size() < 2) {
-                    std::cout << "format is /rename {DisplayName}";
+                    std::cout << "Format is /rename {DisplayName}"<<std::endl;
                     break;
                 }
-                DisplayName = result[1];
+                vector_display->clear();
+                write_to_vector(vector_display, &result[1]);
                 std::cout << "renamed" << std::endl;
                 break;
         }
     } else {
+        //Message sending
         if (!*auth) {
             std::cout << "Sign in before doing anything" << std::endl;
         } else {
             send_msg(server_address, client_socket, DisplayName, userInput, false, myVector);
-            std::cout << "send msg" << std::endl;
         }
 
     }

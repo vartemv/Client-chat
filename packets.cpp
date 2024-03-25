@@ -246,26 +246,24 @@ int read_packet_id(uint8_t *buf) {
  * @param buf The buffer containing the message bytes.
  * @param message_length The length of the message in bytes.
  */
-void read_msg_bytes(uint8_t *buf, int message_length) {
+void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
     std::string out_str;
+    std::string display_name;
     size_t i = 3;
     for (; i < message_length; ++i) {
+        display_name += static_cast<char>(buf[i]);
         if (buf[i] == 0x00)
             break;
     }
     for (; i < message_length; ++i) {
         out_str += static_cast<char>(buf[i]);
     }
-    std::cout << out_str << std::endl;
+    if (error_msg)
+        std::cerr << "ERROR FROM " << display_name << ": " << out_str << std::endl;
+    else
+        std::cout << display_name << ": " << out_str << std::endl;
 }
 
-//void identify_reply_type(uint8_t *buf) {
-//    int result = buf[3];
-//    if (!*open_state) {
-//        (!result) ? *auth = false : *auth = true;
-//        (!result) ? *open_state = true : *open_state = false;
-//    }
-//}
 
 /******************************************************************************
  * Function: confirm_id_from_vector
@@ -319,6 +317,19 @@ void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in *se
     std::cout << "\n";
 }
 
+void print_reply(uint8_t *buf, int message_length) {
+    size_t i = 6;
+    std::string message_contents;
+    for (; i < message_length; ++i) {
+        message_contents += static_cast<char>(buf[i]);
+        if (buf[i] == 0x00)
+            break;
+    }
+    ntohs(buf[3]) ? std::cout << "Success: " << message_contents << std::endl : std::cout << "Failure: "
+                                                                                          << message_contents
+                                                                                          << std::endl;
+}
+
 /*******************************************************************************
  * Function: decipher_the_message
  * ----------------------------
@@ -344,13 +355,15 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
             break;
         case 0x01://REPLY
             delete_id_from_vector(buf, myVector, server_address, client_socket);
+            print_reply(buf, message_length);
             break;
         case 0x04://MSG
-            read_msg_bytes(buf, message_length);
+            read_msg_bytes(buf, message_length, false);
             send_confirm(server_address, client_socket, read_packet_id(buf));//read_packet_id(buf);
             break;
         case 0xFE://ERR
-            std::cout << "Err" << std::endl;
+            //std::cout << "Err" << std::endl;
+            read_msg_bytes(buf, message_length, true);
             break;
         case 0xFF://BYE
             std::cout << "Bye" << std::endl;
