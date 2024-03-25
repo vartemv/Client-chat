@@ -186,6 +186,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
     std::string DisplayName(vector_display->begin(), vector_display->end());
     std::string ChannelID(vector_channel->begin(), vector_channel->end());
 
+
     if (it != String_to_values.end()) {
         int value = it->second;
         if (!*auth) {
