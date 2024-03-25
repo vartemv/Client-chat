@@ -12,6 +12,7 @@ SharedVector *local_vector;
 
 void signalHandler(int signum){
     say_bye(server_address, client_socket, local_vector);
+    *chat =false;
     exit(0);
 }
 
