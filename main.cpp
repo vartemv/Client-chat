@@ -8,6 +8,14 @@ bool *error;
 bool *end;
 bool *auth;
 bool *listen_on_port;
+SharedVector *local_vector;
+
+void signalHandler(int signum){
+    say_bye(server_address, client_socket, local_vector);
+    *chat =false;
+    //cleanup();
+    exit(signum);
+}
 
 int main(int argc, char *argv[]) {
 
@@ -44,6 +52,7 @@ int main(int argc, char *argv[]) {
                                                                   65536);
     const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
     SharedVector *myVector = segment_for_vector.construct<SharedVector>("Myytor")(alloc_inst);
+    local_vector=myVector;
 
     boost::interprocess::shared_memory_object::remove("20");
     boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "20", 1024);
@@ -87,10 +96,12 @@ int main(int argc, char *argv[]) {
 
     std::string userInput;
 
+    pid_t main_id = getpid();
     pid_t pid1 = fork();
     if (pid1 == -1) {
         return 99;
     } else if (pid1 != 0) {
+        signal(SIGINT, signalHandler);
         while (*chat) {
             int ret = poll(fds, 1, 300);
             if (ret == -1) {
@@ -106,7 +117,8 @@ int main(int argc, char *argv[]) {
                             *chat = false;
                         }
                         userInput.clear();
-                        kill(getpid(), SIGKILL);
+                        //kill(getpid(), SIGKILL);
+                        break;
                     }
                 }
             }
@@ -116,38 +128,45 @@ int main(int argc, char *argv[]) {
         listen_on_socket(server_address, client_socket, myVector);
     }
 
-    if (pid1 == 0) {
+    if (main_id == getpid()) {
         //TODO Cleanup function
-        close(client_socket);
-        boost::interprocess::shared_memory_object::remove("20");
-        boost::interprocess::shared_memory_object::remove("21");
-        segment_bool.destroy<bool>("listening");
-        boost::interprocess::shared_memory_object::remove("117");
-        segment_for_vector.destroy<SharedVector>("Myytor");
-        segment.destroy<bool>("chat");
-        segment.destroy<bool>("auth");
-        segment.destroy<bool>("open_state");
-        segment.destroy<bool>("error");
-        segment.destroy<bool>("end");
-        segment_for_vector.destroy_ptr(myVector);
-        munmap(count, sizeof(uint16_t));
-        close(shm_fd);
-        if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
-            perror("Error un-mapping the shared memory segment");
-            exit(EXIT_FAILURE);
-        }
+            close(client_socket);
+            boost::interprocess::shared_memory_object::remove("20");
+            boost::interprocess::shared_memory_object::remove("21");
+            segment_bool.destroy<bool>("listening");
+            boost::interprocess::shared_memory_object::remove("117");
+            segment_for_vector.destroy<SharedVector>("Myytor");
+            segment.destroy<bool>("chat");
+            segment.destroy<bool>("auth");
+            segment.destroy<bool>("open_state");
+            segment.destroy<bool>("error");
+            segment.destroy<bool>("end");
+            segment_for_vector.destroy_ptr(myVector);
+            munmap(count, sizeof(uint16_t));
+            close(shm_fd);
+            if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
+                perror("Error un-mapping the shared memory segment");
+                exit(EXIT_FAILURE);
+            }
+            if (shm_unlink("/my_shm") == -1) {
+                perror("Error unlinking the shared memory segment");
+                exit(EXIT_FAILURE);
+            }
 
-// Close and delete the shared memory object
+            // Additional cleaning
+            boost::interprocess::shared_memory_object::remove("UserName");
+            boost::interprocess::shared_memory_object::remove("DisplayName");
+            boost::interprocess::shared_memory_object::remove("Ch_ID");
+            segment_for_string_un.destroy_ptr(vector_UN);
+            segment_for_string.destroy_ptr(vector_DN);
+            segment_for_channel.destroy_ptr(vector_CD);
 
-        if (shm_unlink("/my_shm") == -1) {
-            perror("Error unlinking the shared memory segment");
-            exit(EXIT_FAILURE);
-        }
-        shm_unlink("MyShareMemorvalue");
-        sem_unlink("sent");
-        sem_unlink("counterr");
-        sem_close(sent_messages);
-        sem_close(counter_stop);
+            shm_unlink("MyShareMemorvalue");
+            sem_unlink("sent");
+            sem_unlink("counterr");
+            sem_close(sent_messages);
+            sem_close(counter_stop);
+            close(fd);
     }
     while (wait(nullptr) > 0);
     return 0;

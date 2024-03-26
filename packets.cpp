@@ -136,7 +136,7 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
     uint8_t buf[3];
 
     int local_counter = *count;
-    Packets bye(0xFF, *count);
+    Packet bye(0xFF, *count);
     increment_counter();
 
     int len = bye.construct_message(buf);

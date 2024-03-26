@@ -31,10 +31,6 @@ enum StringValue {
 
 static std::map<std::string, StringValue> String_to_values;
 bool *chat;
-//bool *auth;
-//bool *open_state;
-//bool *error;
-//bool *end;
 
 sockaddr_in *server_address;
 int client_socket;
