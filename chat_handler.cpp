@@ -1,17 +1,14 @@
 //
 // Created by artem on 3/20/24.
 //
-
-
 #include "chat_handler.h"
 
 uint16_t port;
 uint16_t timeout_chat;
 uint8_t retransmissions;
-bool UDP;
 const char *HOST_chat;
 
-bool get_parameters(int argc, char *argv[]) {
+bool get_parameters(int argc, char *argv[], bool *UDP) {
     port = 4567;
     timeout_chat = 250;
     retransmissions = 3;
@@ -29,9 +26,9 @@ bool get_parameters(int argc, char *argv[]) {
             if (i < argc) {
                 arg = argv[i];
                 if (arg == "udp")
-                    UDP = true;
+                    *UDP = true;
                 else if (arg == "tcp")
-                    UDP = false;
+                    *UDP = false;
                 else {
                     std::cout << "Wrong argument for -t command" << std::endl;
                     return false;

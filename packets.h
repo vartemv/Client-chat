@@ -38,17 +38,20 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
                           int client_socket);
 
 void increment_counter();
+bool decipher_message_tcp_logic(uint8_t *buf, int message_length);
 
 extern bool *auth;
 extern bool *open_state;
 extern bool *error;
 extern bool *end;
 extern bool *listen_on_port;
+extern bool *UDP;
 
 
 //extern SharedVector *myVector;
 extern sem_t *sent_messages;
 extern sem_t *counter_stop;
+extern sem_t *tcp_listening;
 extern uint16_t *count;
 //extern uint16_t *count;
 

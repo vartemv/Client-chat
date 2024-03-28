@@ -9,12 +9,11 @@
 #include <string>
 #include <iostream>
 
-extern bool UDP;
 extern const char *HOST_chat;
 extern uint16_t port;
 extern uint16_t timeout_chat;
 extern uint8_t retransmissions;
 
-bool get_parameters(int argc, char *argv[]);
+bool get_parameters(int argc, char *argv[], bool *UDP);
 
 #endif //IPK_CPP_CHAT_HANDLER_H

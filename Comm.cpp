@@ -3,12 +3,6 @@
 //
 #include "Comm.h"
 
-////const char *HOST = "127.0.0.1";
-//const char *HOST = "anton5.fit.vutbr.cz";
-//uint32_t port_number = 4567;
-//uint16_t timeout = 250;
-//uint8_t retransmits = 3;
-
 void server_connection(sockaddr_in *server_address) {
     struct hostent *server = gethostbyname(HOST_chat);
     if (server == nullptr) {
@@ -23,8 +17,11 @@ void server_connection(sockaddr_in *server_address) {
 }
 
 int create_socket() {
-
-    int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    int client_socket;
+    if (*UDP)
+        client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    else
+        client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     if (client_socket <= 0) {
         perror("ERROR: socket");
@@ -33,10 +30,16 @@ int create_socket() {
     return client_socket;
 }
 
-int receive_message(sockaddr_in *client_address, int client_socket, uint8_t *buf, size_t len) {
-    socklen_t client_address_length = sizeof(*client_address);
-    int bytes_received = recvfrom(client_socket, buf, len, 0, (struct sockaddr *) client_address,
-                                  &client_address_length);
+int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf, size_t len) {
+    socklen_t server_address_length = sizeof(*server_address);
+    int bytes_received;
+    if (*UDP)
+        bytes_received = recvfrom(client_socket, buf, len, 0, (struct sockaddr *) server_address,
+                                  &server_address_length);
+    else {
+        bytes_received = recv(client_socket, buf, len, 0);
+    }
+
     if (bytes_received <= 0) {
         perror("ERROR: recvfrom");
         return 0;
@@ -48,13 +51,17 @@ void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;
-    uint8_t buf[2048];
+    uint8_t buf[4096];
     size_t len = sizeof(buf);
 
     pid_t main_id = getpid();
     pid_t pid;
 
     while (*listen_on_port) {
+
+        if(!*UDP)
+            sem_wait(tcp_listening);
+
         int ret = poll(fds, 1, 300);
 
         if (ret == -1) {
@@ -69,14 +76,31 @@ void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
                 if (message_length <= 0)
                     std::cout << "Problem with message" << std::endl;
 
-                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
-                    *listen_on_port = false;
+                if (*UDP) {
+                    if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
+                        *listen_on_port = false;
+                }else{
+                    //std::cout<<"Here"<<std::endl;
+                    if (!decipher_message_tcp_logic(buf, message_length))
+                        *listen_on_port = false;
+                }
 
                 //kill(getpid(), SIGKILL);
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        if(!*UDP)
+            sem_post(tcp_listening);
 
     }
+}
+
+bool connect_tcp(int client_socket, sockaddr_in *server_address) {
+    std::cout << "Connecting" << std::endl;
+    if (connect(client_socket, (struct sockaddr *) server_address, sizeof(*server_address)) < 0) {
+        std::cerr << "Connection Failed" << std::endl;
+        return false;
+    }
+    return true;
 }

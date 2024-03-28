@@ -2,7 +2,7 @@
 // Created by artem on 3/8/24.
 //
 #include <iostream>
-#include "packets.h"
+#include "packets_tcp.h"
 
 const char *TOKEN_IPK = "cc20830f-8124-49d9-b3d4-2d63dfe15bfb";
 
@@ -92,30 +92,34 @@ void add_to_sent_messages(SharedVector *myVector, int counter) {
  */
 void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     SharedVector *myVector) {
-    uint8_t buf_out[256];
+    if (!*UDP) {
+        auth_to_server_tcp_logic(u_n, disp_name, TOKEN_IPK, client_socket);
+    } else {
+        uint8_t buf_out[256];
 
-    int local_count = *count;
-    AuthPacket authPacket(0x02, *count, u_n, disp_name, TOKEN_IPK);
-    increment_counter();
+        int local_count = *count;
+        AuthPacket authPacket(0x02, *count, u_n, disp_name, TOKEN_IPK);
+        increment_counter();
 
-    int len = authPacket.construct_message(buf_out);
+        int len = authPacket.construct_message(buf_out);
 
-    int address_size = sizeof(*server_address);
+        int address_size = sizeof(*server_address);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
-                           address_size);
-    if (bytes_tx < 0) {
-        perror("ERROR: sendto");
-        std::cout << "auth problem" << std::endl;
-    }
+        long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
+                               address_size);
+        if (bytes_tx < 0) {
+            perror("ERROR: sendto");
+            std::cout << "auth problem" << std::endl;
+        }
 
-    add_to_sent_messages(myVector, local_count);
+        add_to_sent_messages(myVector, local_count);
 
-    if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
-        std::cout << "Couldn't auth to server, try again" << std::endl;
-    else {
-        *auth = true;
-        *open_state = true;
+        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+            std::cout << "Couldn't auth to server, try again" << std::endl;
+        else {
+            *auth = true;
+            *open_state = true;
+        }
     }
 }
 
@@ -133,25 +137,31 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
  */
 bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
 
-    uint8_t buf[3];
-
-    int local_counter = *count;
-    Packet bye(0xFF, *count);
-    increment_counter();
-
-    int len = bye.construct_message(buf);
-
-    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
-    if (bytes_tx < 0) perror("ERROR: sendto");
-
-    add_to_sent_messages(myVector, local_counter);
-
-    if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, myVector)) {
-        std::cout << "Couldn't terminate the connection to server, try again" << std::endl;
-        return false;
-    } else {
-        *listen_on_port = false;
+    if (!*UDP) {
+        say_bye_tcp_logic();
         return true;
+    } else {
+
+        uint8_t buf[3];
+
+        int local_counter = *count;
+        Packet bye(0xFF, *count);
+        increment_counter();
+
+        int len = bye.construct_message(buf);
+
+        long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
+        if (bytes_tx < 0) perror("ERROR: sendto");
+
+        add_to_sent_messages(myVector, local_counter);
+
+        if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, myVector)) {
+            std::cout << "Couldn't terminate the connection to server, try again" << std::endl;
+            return false;
+        } else {
+            *listen_on_port = false;
+            return true;
+        }
     }
 }
 
@@ -171,44 +181,51 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
  */
 void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &d_name,
                     SharedVector *myVector) {
-    uint8_t buf[256];
+    if (!*UDP) {
+        join_to_server_tcp_logic(d_name, ch_id);
+    } else {
+        uint8_t buf[256];
 
-    int local_count = *count;
-    JoinPacket join(0x03, *count, ch_id, d_name);
-    increment_counter();
+        int local_count = *count;
+        JoinPacket join(0x03, *count, ch_id, d_name);
+        increment_counter();
 
-    int len = join.construct_message(buf);
+        int len = join.construct_message(buf);
 
-    add_to_sent_messages(myVector, local_count);
+        add_to_sent_messages(myVector, local_count);
 
-    long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
-    if (bytes_tx < 0) perror("ERROR: sendto");
+        long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
+        if (bytes_tx < 0) perror("ERROR: sendto");
 
-    if (!waiting_for_confirm(local_count, client_socket, buf, len, server_address, myVector))
-        std::cout << "Couldn't join the channel specified" << std::endl;
-
+        if (!waiting_for_confirm(local_count, client_socket, buf, len, server_address, myVector))
+            std::cout << "Couldn't join the channel specified" << std::endl;
+    }
 }
 
 void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
               SharedVector *myVector) {
-    uint8_t buf_out[1250];
+    if (!*UDP) {
+        send_msg_tcp_logic(disp_name, msg);
+    } else {
+        uint8_t buf_out[1250];
 
-    int local_count = *count;
+        int local_count = *count;
 
-    MsgPacket message(error ? 0xFE : 0x04, *count, msg, disp_name);
-    increment_counter();
+        MsgPacket message(error ? 0xFE : 0x04, *count, msg, disp_name);
+        increment_counter();
 
-    int len = message.construct_message(buf_out);
+        int len = message.construct_message(buf_out);
 
-    socklen_t address_size = sizeof(*server_address);
+        socklen_t address_size = sizeof(*server_address);
 
-    long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address, address_size);
-    if (bytes_tx < 0) perror("ERROR: sendto");
+        long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address, address_size);
+        if (bytes_tx < 0) perror("ERROR: sendto");
 
-    add_to_sent_messages(myVector, local_count);
+        add_to_sent_messages(myVector, local_count);
 
-    if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
-        std::cout << "Message haven't been sent" << std::endl;
+        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+            std::cout << "Message haven't been sent" << std::endl;
+    }
 }
 
 /**
@@ -364,13 +381,25 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
         case 0xFE://ERR
             //std::cout << "Err" << std::endl;
             read_msg_bytes(buf, message_length, true);
+            send_confirm(server_address, client_socket, read_packet_id(buf));
             break;
         case 0xFF://BYE
             std::cout << "Bye" << std::endl;
+            send_confirm(server_address, client_socket, read_packet_id(buf));
             return false;
         default:
             std::cout << "Def" << std::endl;
             break;
     }
+    return true;
+}
+
+bool decipher_message_tcp_logic(uint8_t *buf, int message_length) {
+    std::string out_str;
+    for (size_t i = 0; i < message_length-2; ++i) {
+        out_str += static_cast<char>(buf[i]);
+    }
+    out_str[message_length-2] = '\0';
+    std::cout << out_str << std::endl;
     return true;
 }

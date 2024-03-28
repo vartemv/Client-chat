@@ -25,6 +25,8 @@ void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
 
 int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf, size_t len);
 
+bool connect_tcp(int client_socket, sockaddr_in *server_address);
+
 #endif //IPK_CPP_COMM_H
 
 
