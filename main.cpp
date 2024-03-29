@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 if (fds[1].revents && POLLIN) {//socket
-                    if(!receive_message_tcp(client_socket, buf, len))
+                    if (!receive_message_tcp(client_socket, buf, len))
                         *chat = false;
                 }
             } else if (ret == 0) {
@@ -253,8 +253,10 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
         if (!*auth) {
             if (value != evAuth)
                 if (value != evHelp) {
-                    std::cout << "You have to sign in before doing anything";
-                    return true;
+                    if (value != evEnd) {
+                        std::cout << "You have to sign in before doing anything";
+                        return true;
+                    }
                 }
         }
         switch (value) {

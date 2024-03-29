@@ -33,6 +33,7 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
         sem_wait(sent_messages);
         auto it = std::find(myVector->begin(), myVector->end(), counter);
         sem_post(sent_messages);
+        //std::cout<<"Waiting "<<std::endl;
         if (it != myVector->end()) {
             if (std::next(it) != myVector->end() && *std::next(it) != 1) {
                 std::cout << "Not confirmed, sending again" << std::endl;
@@ -96,6 +97,7 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
     if (!*UDP) {
         auth_to_server_tcp_logic(u_n, disp_name, TOKEN_IPK, client_socket);
     } else {
+        //std::cout << "HERE" << std::endl;
         int local_count = *count;
         AuthPacket authPacket(0x02, *count, u_n, disp_name, TOKEN_IPK);
         increment_counter();
@@ -110,9 +112,10 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
             perror("ERROR: sendto");
             std::cout << "auth problem" << std::endl;
         }
+        //std::cout << "HERE1" << std::endl;
 
         add_to_sent_messages(myVector, local_count);
-
+        //std::cout << "HERE2" << std::endl;
         if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
             std::cout << "Couldn't auth to server, try again" << std::endl;
         else {
