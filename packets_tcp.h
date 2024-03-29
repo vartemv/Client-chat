@@ -10,12 +10,12 @@
 
 void auth_to_server_tcp_logic(std::string &u_n, std::string &disp_name, const char *Token, int client_socket);
 
-void say_bye_tcp_logic();
+void say_bye_tcp_logic(int client_socket);
 
-void join_to_server_tcp_logic(std::string &disp_name, std::string &ch_id);
+void join_to_server_tcp_logic(std::string &disp_name, std::string &ch_id, int client_socket);
 
-void send_msg_tcp_logic(std::string &d_name, std::string &msg);
+void send_msg_tcp_logic(std::string &d_name, std::string &msg, int client_socket);
 
-bool wait_for_reply();
+void send_message_tcp(int client_socket, std::string &message);
 
 #endif //IPK_CPP_PACKETS_TCP_H

@@ -38,7 +38,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
                           int client_socket);
 
 void increment_counter();
-bool decipher_message_tcp_logic(uint8_t *buf, int message_length);
+bool decipher_message_tcp_logic(std::string &message);
 
 extern bool *auth;
 extern bool *open_state;
@@ -100,20 +100,6 @@ typedef struct ConfirmPackets : public Packets {
     }
 
 } ConfirmPacket;
-
-//typedef struct ReplyPackets : public Packets {
-//
-//    int8_t Result;
-//    uint16_t Ref_MessageID;
-//    const char *MessageContents;
-//
-//    ReplyPackets(uint8_t type, uint16_t id, int8_t result, uint16_t ref_id, const char *content) : Packets(type, id) {
-//        Result = result;
-//        Ref_MessageID = ref_id;
-//        MessageContents = content;
-//    }
-//
-//} ReplyPacket;
 
 typedef struct JoinPackets : public Packets {
 

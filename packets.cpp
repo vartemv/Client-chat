@@ -76,27 +76,26 @@ void add_to_sent_messages(SharedVector *myVector, int counter) {
     }
 }
 
+
 /**
- * @brief Authenticate with the server
- *
- * This function sends an authentication packet to the server to authenticate the client.
- * It constructs an authentication packet with the provided username, displayname, and IPK token.
- * The constructed packet is sent to the server using the client_socket and server_address.
- * If the authentication is successful, the auth flag is set to true and the open_state flag is set to true.
- *
- * @param server_address A pointer to the server address structure
- * @param client_socket The client socket descriptor
- * @param u_n The username
- * @param disp_name The display name
- * @param myVector A pointer to the shared vector of messages
- */
+* @brief Authorizes the client to the server.
+*
+* This function authorizes the client to the server by sending an authentication packet.
+* If the UDP flag is not set, the authorization is done using TCP.
+* If the UDP flag is set, the authorization is done using UDP.
+*
+* @param server_address The server address.
+* @param client_socket The client socket.
+* @param u_n The username.
+* @param disp_name The display name.
+* @param myVector A pointer to the shared vector of messages.
+*/
 void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     SharedVector *myVector) {
+    uint8_t buf_out[256];
     if (!*UDP) {
         auth_to_server_tcp_logic(u_n, disp_name, TOKEN_IPK, client_socket);
     } else {
-        uint8_t buf_out[256];
-
         int local_count = *count;
         AuthPacket authPacket(0x02, *count, u_n, disp_name, TOKEN_IPK);
         increment_counter();
@@ -123,22 +122,24 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
     }
 }
 
+
 /**
- * @brief Sends a "BYE" message to a server
+ * @brief Sends a goodbye message to the server and terminates the connection.
  *
- * This function sends a "BYE" message to a server in the form of a UDP packet.
- * It constructs the message using the provided server address and client socket.
- * It also updates the shared vector of sent messages and checks for confirmation of the message.
- * If the message is confirmed, the function sets the listen_on_port flag to false.
+ * The function sends a goodbye message to the server using the provided server address and client socket.
+ * If the UDP flag is set, it constructs a UDP packet and sends it via the client socket.
+ * If the UDP flag is not set, it calls the `say_bye_tcp_logic` function to handle the goodbye logic over TCP.
  *
- * @param server_address Pointer to the server address structure
- * @param client_socket The client socket to use for sending the message
- * @param myVector Pointer to the shared vector of sent messages
+ * @param server_address The address of the server.
+ * @param client_socket The client socket.
+ * @param myVector A pointer to the shared vector of messages.
+ *
+ * @return True if the connection is terminated successfully, false otherwise.
  */
 bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
 
     if (!*UDP) {
-        say_bye_tcp_logic();
+        say_bye_tcp_logic(client_socket);
         return true;
     } else {
 
@@ -167,22 +168,22 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
 
 
 /**
- * @brief Joins the server by sending a JoinPacket to the specified server address.
+ * @brief Joins the client to the server.
  *
- * This function constructs a JoinPacket with the specified channel ID and display name, and sends it to the server
- * at the specified server address using the client socket. It also adds the counter value of the JoinPacket to the
- * shared vector of sent messages and waits for confirmation from the server.
+ * This function is used to join the client to the server. It sends a JoinPacket to the server with the client's
+ * display name and channel ID. If UDP is not enabled, it uses TCP logic to join the server. If UDP is enabled,
+ * it constructs a JoinPacket, sends it to the server, and waits for confirmation from the server.
  *
  * @param server_address A pointer to the server address.
  * @param client_socket The client socket.
  * @param ch_id The channel ID.
- * @param d_name The display name.
- * @param myVector A pointer to the shared vector of sent messages.
+ * @param d_name The client's display name.
+ * @param myVector A pointer to the shared vector containing the message counters.
  */
 void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &d_name,
                     SharedVector *myVector) {
     if (!*UDP) {
-        join_to_server_tcp_logic(d_name, ch_id);
+        join_to_server_tcp_logic(d_name, ch_id, client_socket);
     } else {
         uint8_t buf[256];
 
@@ -202,10 +203,22 @@ void join_to_server(sockaddr_in *server_address, int client_socket, std::string 
     }
 }
 
+/**
+ * @brief Sends a message to a server.
+ *
+ * This function sends a message to a server using either TCP or UDP based on the value of the global variable `UDP`.
+ *
+ * @param server_address A pointer to the server address.
+ * @param client_socket The client socket.
+ * @param disp_name The display name.
+ * @param msg The message to send.
+ * @param error Flag indicating if the message is an error message.
+ * @param myVector A pointer to the shared vector used to track sent messages.
+ */
 void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
               SharedVector *myVector) {
     if (!*UDP) {
-        send_msg_tcp_logic(disp_name, msg);
+        send_msg_tcp_logic(disp_name, msg, client_socket);
     } else {
         uint8_t buf_out[1250];
 
@@ -282,17 +295,20 @@ void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
 }
 
 
-/******************************************************************************
- * Function: confirm_id_from_vector
- * --------------------
- * This function confirms the ID from the buffer and updates the corresponding
- * value in the shared vector.
+
+/**
+ * @brief Confirm the ID from a vector
  *
- * buf: A pointer to the buffer containing the data.
- * myVector: A pointer to the shared vector.
+ * This function takes a buffer and a shared vector as input. It confirms the ID by
+ * extracting the value from the buffer, converting it to host byte order, and then
+ * searching for the ID in the shared vector. If the ID is found, the value next to
+ * it in the vector is set to 1 as message confirmation.
  *
- * returns: void
- *****************************************************************************/
+ * @param buf The buffer containing the data
+ * @param myVector A shared vector of type uint16_t
+ *
+ * @return None
+ */
 void confirm_id_from_vector(uint8_t *buf, SharedVector *myVector) {
     int result = buf[1] << 8 | buf[2];
 
@@ -334,6 +350,18 @@ void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in *se
     std::cout << "\n";
 }
 
+/**
+ * @brief Prints the reply message contents.
+ *
+ * This function takes a buffer and the length of a message and prints the contents
+ * of the message. It determines the message contents by scanning the buffer until
+ * it encounters a null byte (0x00). The contents are then converted to a std::string.
+ * It also checks the value in the third byte of the buffer and prints either
+ * "Success: " or "Failure: " before printing the contents.
+ *
+ * @param buf Pointer to the buffer containing the message.
+ * @param message_length The length of the message.
+ */
 void print_reply(uint8_t *buf, int message_length) {
     size_t i = 6;
     std::string message_contents;
@@ -347,23 +375,23 @@ void print_reply(uint8_t *buf, int message_length) {
                                                                                           << std::endl;
 }
 
-/*******************************************************************************
- * Function: decipher_the_message
- * ----------------------------
- * This function deciphers the message based on the first byte of the buffer.
- * It performs different actions based on the value of the first byte.
- * The actions include confirming an ID from a shared vector, deleting an ID from the shared vector
- * and sending a confirmation packet, reading and printing message bytes, handling error and bye messages.
- * The function returns a boolean value indicating whether to continue processing or stop.
+
+/**
+ * @brief Deciphers a message based on the first byte of the buffer.
  *
- * buf             : A pointer to the buffer containing the message.
- * message_length  : The length of the message in bytes.
- * myVector        : A pointer to the shared vector.
- * server_address  : A pointer to the server address structure.
- * client_socket   : The client socket file descriptor.
+ * This function takes a buffer, the length of the message, a shared vector, a server address, and a client socket as input.
+ * It deciphers the message by switching on the first byte of the buffer and calling different functions accordingly.
+ * The functions called depend on the value of the first byte: 0x00, 0x01, 0x04, 0xFE, or 0xFF.
+ * Returns true if the message deciphering is successful and the function should continue, otherwise returns false.
  *
- * returns         : True if continue processing, false if stop.
- ******************************************************************************/
+ * @param buf The buffer containing the message.
+ * @param message_length The length of the message.
+ * @param myVector A shared vector of type uint16_t.
+ * @param server_address The server address used for sending a confirmation packet.
+ * @param client_socket The client socket used for sending a confirmation packet.
+ *
+ * @return True if the message deciphering is successful and the function should continue, otherwise returns false.
+ */
 bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
                           int client_socket) {
     switch (buf[0]) {
@@ -394,12 +422,41 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
     return true;
 }
 
-bool decipher_message_tcp_logic(uint8_t *buf, int message_length) {
-    std::string out_str;
-    for (size_t i = 0; i < message_length-2; ++i) {
-        out_str += static_cast<char>(buf[i]);
+/**
+ * @brief Deciphers a message using TCP protocol logic.
+ *
+ * This function takes a message as input and deciphers it based on the TCP protocol logic.
+ * The deciphered message is printed to the standard output stream.
+ *
+ * @param message The message to be deciphered.
+ * @return True if the deciphering was successful, false if the message is "BYE".
+ */
+bool decipher_message_tcp_logic(std::string &message) {
+
+    std::istringstream iss(message);
+    std::vector<std::string> result;
+    for (std::string s; std::getline(iss, s, ' ');) {
+        result.push_back(s);
     }
-    out_str[message_length-2] = '\0';
-    std::cout << out_str << std::endl;
+
+    if (result[0] == "MSG") {
+        for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
+            std::cout << *it << ' ';
+        }
+        std::cout << "\n";
+    } else if (result[0] == "REPLY") {
+        if (result[1] == "OK") {
+            if (!*auth) {
+                *auth = true;
+                *open_state = true;
+            }
+            for (auto it = std::next(result.begin(), 3); it != result.end(); ++it) {
+                std::cout << *it << ' ';
+            }
+            std::cout << "\n";
+        }
+    } else if (result[0] == "BYE") {
+        return false;
+    }
     return true;
 }

@@ -93,44 +93,76 @@ int main(int argc, char *argv[]) {
     if (!Init_values())
         return 1;
 
-    struct pollfd fds[1];
+    struct pollfd fds[2];
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
+    fds[1].fd = client_socket;
+
+    if (*UDP)
+        fds[1].events = 0;
+    else
+        fds[1].events = POLLIN;
 
     std::string userInput;
-
     pid_t main_id = getpid();
-    pid_t pid1 = fork();
-    if (pid1 == -1) {
-        return 99;
-    } else if (pid1 != 0) {
-        signal(SIGINT, signalHandler);
+
+    if (*UDP) {
+        pid_t pid1 = fork();
+        if (pid1 == -1) {
+            return 99;
+        } else if (pid1 != 0) {
+            signal(SIGINT, signalHandler);
+            while (*chat) {
+                int ret = poll(fds, 1, 300);
+                if (ret == -1) {
+                    printf("Error: poll failed\n");
+                } else if (!ret) {
+                    continue;
+                } else {
+                    std::getline(std::cin, userInput);
+                    if (!userInput.empty()) {
+                        pid_t pid = fork();
+                        if (pid == 0) {
+                            if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
+                                *chat = false;
+                            }
+                            userInput.clear();
+                            break;
+                        }
+                    }
+                }
+
+            }
+        } else {
+            listen_on_socket(server_address, client_socket, myVector);
+        }
+    } else {
+        uint8_t buf[4096];
+        int len = sizeof(buf);
+        connect_tcp(client_socket, server_address);
         while (*chat) {
-            int ret = poll(fds, 1, 300);
-            if (ret == -1) {
-                printf("Error: poll failed\n");
-            } else if (!ret) {
-                continue;
-            } else {
-                std::getline(std::cin, userInput);
-                if (!userInput.empty()) {
-                    pid_t pid = fork();
-                    if (pid == 0) {
+            int ret = poll(fds, 2, 300);
+            if (ret > 0) {
+                if (fds[0].revents && POLLIN) {//chat
+                    std::getline(std::cin, userInput);
+                    if (!userInput.empty()) {
                         if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
                             *chat = false;
                         }
+
                         userInput.clear();
-                        //kill(getpid(), SIGKILL);
-                        break;
                     }
                 }
+                if (fds[1].revents && POLLIN) {//socket
+                    if(!receive_message_tcp(client_socket, buf, len))
+                        *chat = false;
+                }
+            } else if (ret == 0) {
+                continue;
+            } else {
+                printf("Error occured");
             }
-
         }
-    } else {
-        if (!*UDP)
-            connect_tcp(client_socket, server_address);
-        listen_on_socket(server_address, client_socket, myVector);
     }
 
     if (main_id == getpid()) {
@@ -235,8 +267,6 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     write_to_vector(vector_string, &result[1]);
                     write_to_vector(vector_display, &result[2]);
                     auth_to_server(server_address, client_socket, result[1], result[2], myVector);
-                    if (!*auth)
-                        std::cout << "Not authed" << std::endl;
                 } else {
                     std::cout << "You already authed to server" << std::endl;
                 }
@@ -289,7 +319,7 @@ static bool Init_values() {
     String_to_values["exit"] = evEnd;
 
     if (((sent_messages = sem_open("sent", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) ||
-        ((counter_stop = sem_open("counterr", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED)||
+        ((counter_stop = sem_open("counterr", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) ||
         (tcp_listening = sem_open("tcp", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) {
         perror("sem_open");
         return false;
