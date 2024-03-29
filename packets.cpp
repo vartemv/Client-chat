@@ -413,9 +413,9 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
             //std::cout << "Err" << std::endl;
             read_msg_bytes(buf, message_length, true);
             send_confirm(server_address, client_socket, read_packet_id(buf));
-            break;
+            return false;
         case 0xFF://BYE
-            std::cout << "Bye" << std::endl;
+            std::cout << "Server terminated connection" << std::endl;
             send_confirm(server_address, client_socket, read_packet_id(buf));
             return false;
         default:

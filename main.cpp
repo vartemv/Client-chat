@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
             }
         } else {
             listen_on_socket(server_address, client_socket, myVector);
+            *chat = false;
         }
     } else {
         uint8_t buf[4096];
