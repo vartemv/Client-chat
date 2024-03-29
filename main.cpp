@@ -19,6 +19,7 @@ void signalHandler(int signum) {
     exit(signum);
 }
 
+
 int main(int argc, char *argv[]) {
 
     boost::interprocess::shared_memory_object::remove("20");
