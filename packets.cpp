@@ -409,7 +409,6 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
             confirm_id_from_vector(buf, myVector);
             break;
         case 0x01://REPLY
-            std::cerr<<"TEST1"<<std::endl;
             delete_id_from_vector(buf, myVector, server_address, client_socket);
             print_reply(buf, message_length);
             break;

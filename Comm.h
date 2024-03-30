@@ -21,7 +21,7 @@ int create_socket();
 
 void server_connection(sockaddr_in *server_address);
 
-void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
+bool listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
 
 int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf, size_t len);
 

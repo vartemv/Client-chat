@@ -133,9 +133,8 @@ int main(int argc, char *argv[]) {
 
             }
         } else {
-            std::cerr<<"TEST4"<<std::endl;
-            listen_on_socket(server_address, client_socket, myVector);
-            *chat = false;
+            if(!listen_on_socket(server_address, client_socket, myVector))
+                *chat = false;
         }
     } else {
         signal(SIGINT, signalHandler);
