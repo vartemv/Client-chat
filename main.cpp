@@ -169,6 +169,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+
     if (main_id == getpid()) {
         //TODO Cleanup function
         if (!*UDP) {
