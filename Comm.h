@@ -27,7 +27,7 @@ int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf
 
 bool connect_tcp(int client_socket, sockaddr_in *server_address);
 
-bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len);
+bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len, std::string &d_name);
 
 #endif //IPK_CPP_COMM_H
 

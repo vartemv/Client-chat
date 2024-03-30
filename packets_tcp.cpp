@@ -3,8 +3,8 @@
 //
 #include "packets_tcp.h"
 
-void auth_to_server_tcp_logic(std::string &u_n, std::string &disp_name, const char *Token, int client_socket) {
-    std::string message = "AUTH " + u_n + " AS " + disp_name + " USING " + std::string(Token) + "\r\n";
+void auth_to_server_tcp_logic(std::string &u_n, std::string &disp_name, std::string &Token, int client_socket) {
+    std::string message = "AUTH " + u_n + " AS " + disp_name + " USING " + Token + "\r\n";
     send_message_tcp(client_socket, message);
 }
 
@@ -18,12 +18,16 @@ void join_to_server_tcp_logic(std::string &disp_name, std::string &ch_id, int cl
     send_message_tcp(client_socket, message);
 }
 
-void send_msg_tcp_logic(std::string &d_name, std::string &msg, int client_socket) {
-    std::string message = "MSG FROM " + d_name + " IS " + msg + "\r\n";
+void send_msg_tcp_logic(std::string &d_name, std::string &msg, int client_socket, bool error_tcp) {
+    std::string message;
+    if (error_tcp)
+        message = "ERR FROM " + d_name + " IS " + msg + "\r\n";
+    else
+        message = "MSG FROM " + d_name + " IS " + msg + "\r\n";
     send_message_tcp(client_socket, message);
 }
 
-void send_message_tcp(int client_socket, std::string &message){
+void send_message_tcp(int client_socket, std::string &message) {
     const char *p_message = message.c_str();
     size_t bytes_left = message.size();
 

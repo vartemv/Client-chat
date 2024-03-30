@@ -16,7 +16,6 @@ void signalHandler(int signum) {
     say_bye(server_address, client_socket, local_vector);
     *chat = false;
     //cleanup();
-    exit(signum);
 }
 
 int main(int argc, char *argv[]) {
@@ -134,13 +133,16 @@ int main(int argc, char *argv[]) {
 
             }
         } else {
+            std::cerr<<"TEST4"<<std::endl;
             listen_on_socket(server_address, client_socket, myVector);
             *chat = false;
         }
     } else {
+        signal(SIGINT, signalHandler);
         uint8_t buf[4096];
         int len = sizeof(buf);
-        connect_tcp(client_socket, server_address);
+        if(!connect_tcp(client_socket, server_address))
+            *chat = false;
         while (*chat) {
             int ret = poll(fds, 2, 300);
             if (ret > 0) {
@@ -155,17 +157,19 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 if (fds[1].revents && POLLIN) {//socket
-                    if (!receive_message_tcp(client_socket, buf, len))
+                    std::string Name = "default";
+                    if(!vector_DN->empty())
+                        Name = std::string(vector_DN->begin(), vector_DN->end());
+                    if (!receive_message_tcp(client_socket, buf, len, Name))
                         *chat = false;
                 }
             } else if (ret == 0) {
                 continue;
             } else {
-                printf("Error occured");
+                printf("Error occured or SIGINT was caught\n");
             }
         }
     }
-
     if (main_id == getpid()) {
         //TODO Cleanup function
         if (!*UDP) {
@@ -202,13 +206,13 @@ int main(int argc, char *argv[]) {
         segment_for_string.destroy_ptr(vector_DN);
         segment_for_channel.destroy_ptr(vector_CD);
 
+        sem_close(sent_messages);
+        sem_close(counter_stop);
+        sem_close(tcp_listening);
         shm_unlink("MyShareMemorvalue");
         sem_unlink("sent");
         sem_unlink("counterr");
         sem_unlink("tcp");
-        sem_close(sent_messages);
-        sem_close(counter_stop);
-        sem_close(tcp_listening);
         close(fd);
     }
     while (wait(nullptr) > 0);
@@ -255,28 +259,28 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
             if (value != evAuth)
                 if (value != evHelp) {
                     if (value != evEnd) {
-                        std::cout << "You have to sign in before doing anything";
+                        std::cerr << "ERR: You have to sign in before doing anything"<< std::endl;
                         return true;
                     }
                 }
         }
         switch (value) {
             case evAuth:
-                if (result.size() < 3) {
-                    std::cout << "format is /auth {Username} {DisplayName}" << std::endl;
+                if (result.size() < 4) {
+                    std::cerr << "ERR: format is /auth {Username} {Secret} {DisplayName}" << std::endl;
                     break;
                 }
                 if (!*auth) {
                     write_to_vector(vector_string, &result[1]);
-                    write_to_vector(vector_display, &result[2]);
-                    auth_to_server(server_address, client_socket, result[1], result[2], myVector);
+                    write_to_vector(vector_display, &result[3]);
+                    auth_to_server(server_address, client_socket, result[1], result[3], result[2] ,myVector);
                 } else {
-                    std::cout << "You already authed to server" << std::endl;
+                    std::cerr << "ERR: You already authed to server" << std::endl;
                 }
                 break;
             case evJoin:
                 if (result.size() < 2) {
-                    std::cout << "format is /join {ChannelID}" << std::endl;
+                    std::cerr << "ERR: format is /join {ChannelID}" << std::endl;
                     break;
                 }
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
@@ -290,7 +294,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 break;
             case evRename:
                 if (result.size() < 2) {
-                    std::cout << "Format is /rename {DisplayName}" << std::endl;
+                    std::cerr << "ERR: Format is /rename {DisplayName}" << std::endl;
                     break;
                 }
                 vector_display->clear();
@@ -301,7 +305,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
     } else {
         //Message sending
         if (!*auth) {
-            std::cout << "Sign in before doing anything" << std::endl;
+            std::cerr << "ERR: Sign in before doing anything" << std::endl;
         } else {
             send_msg(server_address, client_socket, DisplayName, userInput, false, myVector);
         }
@@ -327,6 +331,8 @@ static bool Init_values() {
         perror("sem_open");
         return false;
     }
+
+    sem_post(sent_messages);
 
     server_connection(server_address);
     client_socket = create_socket();

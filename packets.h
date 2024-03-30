@@ -21,7 +21,7 @@
 typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
 typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
-void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
+void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name, std::string &TOKEN_IPK,
                     SharedVector *myVector);
 
 bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
@@ -31,14 +31,14 @@ void send_confirm(sockaddr_in *server_address, int client_socket, int ref_id);
 void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &disp_name,
                     SharedVector *myVector);
 
-void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
+void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error_msg,
               SharedVector *myVector);
 
 bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
                           int client_socket);
 
 void increment_counter();
-bool decipher_message_tcp_logic(std::string &message);
+bool decipher_message_tcp_logic(std::string &message, int client_socket, std::string &d_name);
 
 extern bool *auth;
 extern bool *open_state;
