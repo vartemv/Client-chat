@@ -96,13 +96,13 @@ int main(int argc, char *argv[]) {
 
     std::string userInput;
     pid_t main_id = getpid();
+    signal(SIGINT, signalHandler);
 
     if (*UDP) {
         pid_t pid1 = fork();
         if (pid1 == -1) {
             return 99;
         } else if (pid1 != 0) {
-            signal(SIGINT, signalHandler);
             while (*chat) {
                 int ret = poll(fds, 1, 300);
                 if (ret == -1) {
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
                 *chat = false;
         }
     } else {
-        signal(SIGINT, signalHandler);
+
         uint8_t buf[4096];
         int len = sizeof(buf);
         if (!connect_tcp(client_socket, server_address))
@@ -285,15 +285,15 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 }
                 if (!*auth) {
                     if (result[1].length() > 20) {
-                        std::cout << "Username shouldn't be longer than 20 characters";
+                        std::cerr << "ERR: Username shouldn't be longer than 20 characters";
                         break;
                     }
                     if (result[2].length() > 128) {
-                        std::cout << "Secret shouldn't be longer than 128 characters";
+                        std::cerr << "ERR: Secret shouldn't be longer than 128 characters";
                         break;
                     }
                     if (result[3].length() > 20) {
-                        std::cout << "DisplayName shouldn't be longer than 20 characters";
+                        std::cerr << "ERR: DisplayName shouldn't be longer than 20 characters";
                         break;
                     }
                     write_to_vector(vector_string, &result[1]);
@@ -309,7 +309,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     break;
                 }
                 if (result[1].length() > 20) {
-                    std::cout << "Channel ID shouldn't be longer than 20 characters";
+                    std::cerr << "ERR: Channel ID shouldn't be longer than 20 characters";
                     break;
                 }
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
@@ -327,12 +327,12 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     break;
                 }
                 if (result[1].length() > 20) {
-                    std::cout << "DisplayName shouldn't be longer than 20 characters";
+                    std::cerr << "ERR: DisplayName shouldn't be longer than 20 characters";
                     break;
                 }
                 vector_display->clear();
                 write_to_vector(vector_display, &result[1]);
-                std::cout << "renamed" << std::endl;
+                std::cout << "Renamed" << std::endl;
                 break;
         }
     } else {

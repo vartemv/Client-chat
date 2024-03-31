@@ -266,7 +266,7 @@ void send_confirm(sockaddr_in *server_address, int client_socket, int ref_id) {
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-int read_packet_id(uint8_t *buf) {
+int read_packet_id(const uint8_t *buf) {
     int result = buf[1] << 8 | buf[2];
     return ntohs(result);
 }
@@ -313,7 +313,7 @@ void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
  *
  * @return None
  */
-void confirm_id_from_vector(uint8_t *buf, SharedVector *myVector) {
+void confirm_id_from_vector(const uint8_t *buf, SharedVector *myVector) {
     int result = buf[1] << 8 | buf[2];
 
     result = ntohs(result);
@@ -490,9 +490,7 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
 
     if (result[0] == "MSG") {
         std::regex e("^MSG FROM .{1,20} IS .{1,1400}$");
-        if (std::regex_match(message, e))
-            std::cout << "String s matches pattern e\n";
-        else {
+        if (!std::regex_match(message, e)){
             std::string mes = "String s does not match pattern e";
             std::cout << mes << std::endl;
             send_msg_tcp_logic(d_name, mes, client_socket, true);
@@ -509,17 +507,17 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
             }
         }
         std::cout << std::endl;
+
     } else if (result[0] == "REPLY") {
         std::regex e("^REPLY (OK|NOK) IS .{1,1400}$");
-        if (std::regex_match(message, e))
-            std::cout << "String s matches pattern e\n";
-        else {
+        if (!std::regex_match(message, e)) {
             std::string mes = "String s does not match pattern e";
             std::cout << mes << std::endl;
             send_msg_tcp_logic(d_name, mes, client_socket, true);
             say_bye_tcp_logic(client_socket);
             return false;
         }
+
         if (result[1] == "OK") {
             if (!*auth) {
                 *auth = true;
@@ -544,15 +542,14 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
     } else if (result[0] == "ERR") {
 
         std::regex e("^ERR FROM .{1,20} IS .{1,1400}$");
-        if (std::regex_match(message, e))
-            std::cout << "String s matches pattern e\n";
-        else {
+        if (!std::regex_match(message, e)) {
             std::string mes = "String s does not match pattern e";
             std::cout << mes << std::endl;
             send_msg_tcp_logic(d_name, mes, client_socket, true);
             say_bye_tcp_logic(client_socket);
             return false;
         }
+
 
         std::cerr << "ERR FROM " << result[2] << ": ";
         for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
