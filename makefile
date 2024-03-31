@@ -1,4 +1,4 @@
-CC := gcc
+CC := g++
 CFLAGS := -std=c99 -Wall -Wextra
 SRCS = chat_handler.cpp Comm.cpp main.cpp packets.cpp packets_tcp.cpp
 OBJS = chat_handler.o Comm.o main.o packets.o packets_tcp.o
