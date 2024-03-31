@@ -42,8 +42,6 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
 
 extern bool *auth;
 extern bool *open_state;
-extern bool *error;
-extern bool *end;
 extern bool *listen_on_port;
 extern bool *UDP;
 

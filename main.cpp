@@ -5,8 +5,6 @@ sem_t *counter_stop;
 sem_t *tcp_listening;
 uint16_t *count;
 bool *open_state;
-bool *error;
-bool *end;
 bool *auth;
 bool *listen_on_port;
 bool *UDP;
@@ -15,7 +13,6 @@ SharedVector *local_vector;
 void signalHandler(int signum) {
     say_bye(server_address, client_socket, local_vector);
     *chat = false;
-    //cleanup();
 }
 
 int main(int argc, char *argv[]) {
@@ -25,7 +22,7 @@ int main(int argc, char *argv[]) {
     UDP = segment.construct<bool>("udp")(true);
 
     if (!get_parameters(argc, argv, UDP))
-        return 1;
+        return 0;
 
     int shm_fd = shm_open("MyShareMemorvalue", O_CREAT | O_RDWR, 0666);
     ftruncate(shm_fd, sizeof(uint16_t));
@@ -86,8 +83,6 @@ int main(int argc, char *argv[]) {
     chat = segment.construct<bool>("chat")(true);
     auth = segment.construct<bool>("auth")(false);
     open_state = segment.construct<bool>("open_state")(false);
-    error = segment.construct<bool>("error")(false);
-    end = segment.construct<bool>("end")(false);
 
     if (!Init_values())
         return 1;
@@ -97,10 +92,7 @@ int main(int argc, char *argv[]) {
     fds[0].events = POLLIN;
     fds[1].fd = client_socket;
 
-    if (*UDP)
-        fds[1].events = 0;
-    else
-        fds[1].events = POLLIN;
+    *UDP ? fds[1].events = 0 : fds[1].events = POLLIN;
 
     std::string userInput;
     pid_t main_id = getpid();
@@ -114,7 +106,7 @@ int main(int argc, char *argv[]) {
             while (*chat) {
                 int ret = poll(fds, 1, 300);
                 if (ret == -1) {
-                    printf("Error: poll failed\n");
+                    printf("Error occured or SIGINT was caught\n");
                 } else if (!ret) {
                     continue;
                 } else {
@@ -134,14 +126,14 @@ int main(int argc, char *argv[]) {
             }
         } else {
             std::string DisplayName(vector_DN->begin(), vector_DN->end());
-            if(!listen_on_socket(server_address, client_socket, myVector, DisplayName))
+            if (!listen_on_socket(server_address, client_socket, myVector, DisplayName))
                 *chat = false;
         }
     } else {
         signal(SIGINT, signalHandler);
         uint8_t buf[4096];
         int len = sizeof(buf);
-        if(!connect_tcp(client_socket, server_address))
+        if (!connect_tcp(client_socket, server_address))
             *chat = false;
         while (*chat) {
             int ret = poll(fds, 2, 300);
@@ -158,7 +150,7 @@ int main(int argc, char *argv[]) {
                 }
                 if (fds[1].revents && POLLIN) {//socket
                     std::string Name = "default";
-                    if(!vector_DN->empty())
+                    if (!vector_DN->empty())
                         Name = std::string(vector_DN->begin(), vector_DN->end());
                     if (!receive_message_tcp(client_socket, buf, len, Name))
                         *chat = false;
@@ -185,8 +177,6 @@ int main(int argc, char *argv[]) {
         segment.destroy<bool>("chat");
         segment.destroy<bool>("auth");
         segment.destroy<bool>("open_state");
-        segment.destroy<bool>("error");
-        segment.destroy<bool>("end");
         segment_for_vector.destroy_ptr(myVector);
         munmap(count, sizeof(uint16_t));
         close(shm_fd);
@@ -226,6 +216,28 @@ void write_to_vector(shm_vector *vector_string, std::string *source) {
     }
 }
 
+void print_help(){
+    std::cout <<
+              R"(
+/auth      {Username} {Secret} {DisplayName}__________________________________________
+           Sends AUTH message with the data provided from the command to the server
+           (and correctly handles the Reply message), locally sets the DisplayName
+           value (same as the /rename command).
+
+
+/join      {ChannelID}________________________________________________________________
+           Sends JOIN message with channel name from the command to the server
+           (and correctly handles the Reply message).
+
+/rename    {DisplayName}______________________________________________________________
+           Locally changes the display name of the user to be sent with new
+           messages/selected commands.
+
+/help      ___________________________________________________________________________
+           Prints out supported local commands with their parameters and a description.
+)";
+}
+
 /**
  * @brief Handles the chat command entered by the user.
  *
@@ -260,7 +272,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
             if (value != evAuth)
                 if (value != evHelp) {
                     if (value != evEnd) {
-                        std::cerr << "ERR: You have to sign in before doing anything"<< std::endl;
+                        std::cerr << "ERR: You have to sign in before doing anything" << std::endl;
                         return true;
                     }
                 }
@@ -272,9 +284,21 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     break;
                 }
                 if (!*auth) {
+                    if (result[1].length() > 20) {
+                        std::cout << "Username shouldn't be longer than 20 characters";
+                        break;
+                    }
+                    if (result[2].length() > 128) {
+                        std::cout << "Secret shouldn't be longer than 128 characters";
+                        break;
+                    }
+                    if (result[3].length() > 20) {
+                        std::cout << "DisplayName shouldn't be longer than 20 characters";
+                        break;
+                    }
                     write_to_vector(vector_string, &result[1]);
                     write_to_vector(vector_display, &result[3]);
-                    auth_to_server(server_address, client_socket, result[1], result[3], result[2] ,myVector);
+                    auth_to_server(server_address, client_socket, result[1], result[3], result[2], myVector);
                 } else {
                     std::cerr << "ERR: You already authed to server" << std::endl;
                 }
@@ -284,10 +308,15 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     std::cerr << "ERR: format is /join {ChannelID}" << std::endl;
                     break;
                 }
+                if (result[1].length() > 20) {
+                    std::cout << "Channel ID shouldn't be longer than 20 characters";
+                    break;
+                }
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
                 break;
             case evHelp:
-                std::cout << "Some help info" << std::endl;
+                  print_help();
+//                std::cout << "Some help info" << std::endl;
                 break;
             case evEnd:
                 if (say_bye(server_address, client_socket, myVector))
@@ -296,6 +325,10 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
             case evRename:
                 if (result.size() < 2) {
                     std::cerr << "ERR: Format is /rename {DisplayName}" << std::endl;
+                    break;
+                }
+                if (result[1].length() > 20) {
+                    std::cout << "DisplayName shouldn't be longer than 20 characters";
                     break;
                 }
                 vector_display->clear();

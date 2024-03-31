@@ -8,6 +8,16 @@ uint16_t timeout_chat;
 uint8_t retransmissions;
 const char *HOST_chat;
 
+void print_help_cli(){
+    std::cout <<
+              R"(| -t    | User provided | tcp or udp                | Transport protocol used for connection      |
+| -s    | User provided | IP address or hostname    | Server IP or hostname                       |
+| -p    | 4567          | uint16                    | Server port                                 |
+| -d    | 250           | uint16                    | UDP confirmation timeout                    |
+| -r    | 3             | uint8                     | Maximum number of UDP retransmissions       |
+)";
+}
+
 bool get_parameters(int argc, char *argv[], bool *UDP) {
     port = 4567;
     timeout_chat = 250;
@@ -19,7 +29,7 @@ bool get_parameters(int argc, char *argv[], bool *UDP) {
         std::string arg = argv[i];
 
         if (arg == "-h") {
-            std::cout << "This is help message" << std::endl;
+            print_help_cli();
             return false;
         } else if (arg == "-t") {
             i++;
