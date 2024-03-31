@@ -21,6 +21,9 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
 
 static bool Init_values();
 
+void tcp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *myVector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
+void udp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *myVector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
+
 enum StringValue {
     evAuth,
     evJoin,

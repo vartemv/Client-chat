@@ -18,6 +18,40 @@ void print_help_cli() {
 )";
 }
 
+/**
+ * @brief Parses command line arguments and retrieves the necessary parameters.
+ *
+ * @param argc The number of command line arguments.
+ * @param argv The command line arguments.
+ * @param UDP A pointer to a boolean that indicates if UDP protocol should be used.
+ * @return bool Returns true if the parameters were successfully retrieved, false otherwise.
+ *
+ * This function parses the command line arguments and retrieves the necessary parameters, such as the transport protocol,
+ * server IP address or hostname, server port, timeout value, and number of retransmissions. It also sets the value of the UDP
+ * parameter based on the passed arguments. The function returns true if all the required parameters were provided, and false
+ * otherwise.
+ *
+ * Command line arguments:
+ *
+ * -t: Specifies the transport protocol (TCP or UDP)
+ *    - Valid values: "tcp", "udp"
+ *
+ * -s: Specifies the server IP address or hostname
+ *    - Valid value: Any valid IP address or hostname
+ *
+ * -p: Specifies the server port
+ *    - Valid value: An integer value within the range of uint16_t
+ *    - Default value: 4567
+ *
+ * -d: Specifies the timeout value for UDP confirmation
+ *    - Valid value: An integer value within the range of uint16_t
+ *    - Default value: 250
+ *
+ * -r: Specifies the maximum number of UDP retransmissions
+ *    - Valid value: An integer value within the range of uint8_t
+ *    - Default value: 3
+ *
+ */
 bool get_parameters(int argc, char *argv[], bool *UDP) {
     port = 4567;
     timeout_chat = 250;
@@ -98,11 +132,9 @@ bool get_parameters(int argc, char *argv[], bool *UDP) {
             }
         }
     }
-
     if (!specified_host || !choosed_protocol) {
         std::cout << "You didnt specify host or protocol";
         return false;
     }
-
     return true;
 }

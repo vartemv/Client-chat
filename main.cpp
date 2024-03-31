@@ -16,16 +16,10 @@ void signalHandler(int signum) {
 }
 
 /**
- * @brief This is the main function of the client.
- *
- * This function initializes and manages shared memory objects, creates and handles child processes, and performs
- * various cleanup tasks. It also contains the main logic of the software, including handling user input and
- * communication with a server.
- *
- * @param argc The number of command line arguments.
- * @param argv An array of command line argument strings.
- *
- * @return The exit status of the software.
+ * @brief The main function of the program
+ * @param argc The number of command line arguments
+ * @param argv An array of command line arguments
+ * @return The exit status of the program
  */
 int main(int argc, char *argv[]) {
 
@@ -111,67 +105,9 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, signalHandler);
 
     if (*UDP) {
-        pid_t pid1 = fork();
-        if (pid1 == -1) {
-            return 99;
-        } else if (pid1 != 0) {
-            while (*chat) {
-                int ret = poll(fds, 1, 300);
-                if (ret == -1) {
-                    printf("Error occured or SIGINT was caught\n");
-                } else if (!ret) {
-                    continue;
-                } else {
-                    std::getline(std::cin, userInput);
-                    if (!userInput.empty()) {
-                        pid_t pid = fork();
-                        if (pid == 0) {
-                            if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
-                                *chat = false;
-                            }
-                            userInput.clear();
-                            break;
-                        }
-                    }
-                }
-
-            }
-        } else {
-            std::string DisplayName(vector_DN->begin(), vector_DN->end());
-            if (!listen_on_socket(server_address, client_socket, myVector, DisplayName))
-                *chat = false;
-        }
-
+        udp_behaviour(fds, userInput, myVector, vector_UN, vector_DN, vector_CD);
     } else {
-        uint8_t buf[4096];
-        int len = sizeof(buf);
-        if (!connect_tcp(client_socket, server_address))
-            *chat = false;
-        while (*chat) {
-            int ret = poll(fds, 2, 300);
-            if (ret > 0) {
-                if (fds[0].revents && POLLIN) {//chat
-                    std::getline(std::cin, userInput);
-                    if (!userInput.empty()) {
-                        if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
-                            *chat = false;
-                        }
-                        userInput.clear();
-                    }
-                }
-                if (fds[1].revents && POLLIN) {//socket
-                    std::string Name = "default";
-                    if (!vector_DN->empty())
-                        Name = std::string(vector_DN->begin(), vector_DN->end());
-                    if (!receive_message_tcp(client_socket, buf, len, Name))
-                        *chat = false;
-                }
-            } else if (ret == 0) {
-                continue;
-            } else {
-                printf("Error occured or SIGINT was caught\n");
-            }
-        }
+        tcp_behaviour(fds, userInput, myVector, vector_UN, vector_DN, vector_CD);
     }
 
     if (main_id == getpid()) {
@@ -221,13 +157,107 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+/**
+ * @brief Implements the TCP communication behaviour for the chat application.
+ *
+ * This function handles the user input and the communication with the server through TCP socket.
+ * It uses the poll function to wait for input from the user or from the socket.
+ *
+ * @param[in,out] fds The array of pollfd structures for monitoring file descriptors.
+ * @param[in,out] userInput The string where the user input is stored.
+ * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] vector_UN Pointer to the shm_vector object for username data.
+ * @param[in] vector_DN Pointer to the shm_vector object for display name data.
+ * @param[in] vector_CD Pointer to the shm_vector object for channel ID data.
+ */
+void tcp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector, shm_vector *vector_UN,
+                   shm_vector *vector_DN, shm_vector *vector_CD) {
+    uint8_t buf[4096];
+    int len = sizeof(buf);
+    if (!connect_tcp(client_socket, server_address))
+        *chat = false;
+    while (*chat) {
+        int ret = poll(fds, 2, 300);
+        if (ret > 0) {
+            if (fds[0].revents && POLLIN) {//chat
+                std::getline(std::cin, userInput);
+                if (!userInput.empty()) {
+                    if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
+                        *chat = false;
+                    }
+                    userInput.clear();
+                }
+            }
+            if (fds[1].revents && POLLIN) {//socket
+                std::string Name = "default";
+                if (!vector_DN->empty())
+                    Name = std::string(vector_DN->begin(), vector_DN->end());
+                if (!receive_message_tcp(client_socket, buf, len, Name))
+                    *chat = false;
+            }
+        } else if (ret == 0) {
+            continue;
+        } else {
+            printf("Error occured or SIGINT was caught\n");
+        }
+    }
+}
+
+/**
+ * @brief Perform UDP chat behavior.
+ *
+ * This function handles the UDP chat behavior by forking a child process.
+ * The parent process listens for user input from standard input and sends it to the server.
+ * The child process listens for messages from the server and handles them accordingly.
+ *
+ * @param[in] fds Array of pollfd structures.
+ * @param[in] userInput Reference to the user input string.
+ * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] vector_UN Pointer to the shm_vector object for username data.
+ * @param[in] vector_DN Pointer to the shm_vector object for display name data.
+ * @param[in] vector_CD Pointer to the shm_vector object for channel ID data.
+ */
+void udp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector, shm_vector *vector_UN,
+                   shm_vector *vector_DN, shm_vector *vector_CD) {
+    pid_t pid1 = fork();
+    if (pid1 == -1) {
+        exit(99);
+    } else if (pid1 != 0) {
+        while (*chat) {
+            int ret = poll(fds, 1, 300);
+            if (ret == -1) {
+                printf("Error occured or SIGINT was caught\n");
+            } else if (!ret) {
+                continue;
+            } else {
+                std::getline(std::cin, userInput);
+                if (!userInput.empty()) {
+                    pid_t pid = fork();
+                    if (pid == 0) {
+                        if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
+                            *chat = false;
+                        }
+                        userInput.clear();
+                        break;
+                    }
+                }
+            }
+
+        }
+    } else {
+        std::string DisplayName(vector_DN->begin(), vector_DN->end());
+        if (!listen_on_socket(server_address, client_socket, myVector, DisplayName))
+            *chat = false;
+    }
+}
+
 void write_to_vector(shm_vector *vector_string, std::string *source) {
     for (auto c: *source) {
         vector_string->push_back(c);
     }
 }
 
-void print_help(){
+void print_help() {
     std::cout <<
               R"(
 /auth      {Username} {Secret} {DisplayName}__________________________________________
@@ -326,7 +356,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
                 break;
             case evHelp:
-                  print_help();
+                print_help();
                 break;
             case evEnd:
                 if (say_bye(server_address, client_socket, myVector))
