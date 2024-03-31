@@ -162,7 +162,7 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
         add_to_sent_messages(myVector, local_counter);
 
         if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, myVector)) {
-            std::cout << "Couldn't terminate the connection to server, try again" << std::endl;
+            std::cerr << "ERR: Couldn't terminate the connection to server, try again" << std::endl;
             return false;
         } else {
             *listen_on_port = false;
