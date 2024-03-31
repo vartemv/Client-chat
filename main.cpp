@@ -130,6 +130,7 @@ int main(int argc, char *argv[]) {
             if (!listen_on_socket(server_address, client_socket, myVector, DisplayName))
                 *chat = false;
         }
+
     } else {
         uint8_t buf[4096];
         int len = sizeof(buf);
