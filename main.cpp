@@ -130,7 +130,6 @@ int main(int argc, char *argv[]) {
                 *chat = false;
         }
     } else {
-
         uint8_t buf[4096];
         int len = sizeof(buf);
         if (!connect_tcp(client_socket, server_address))
