@@ -97,16 +97,20 @@ int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf
  * @param len The number of bytes to receive.
  * @return True if the message was successfully received and deciphered, false otherwise.
  */
-bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len){
+bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len, std::string &d_name) {
     int bytes_received = recv(client_socket, buf, len, 0);
-    if (bytes_received <= 0){
+    if (bytes_received < 0) {
         perror("Error");
+        return false;
+    } else if (bytes_received == 0) {
+        std::cout << "Server closed the connection" << std::endl;
+        return false;
     }
     std::string out_str;
-    for (int i = 0 ; i < bytes_received-2; ++i) {
+    for (int i = 0; i < bytes_received - 2; ++i) {
         out_str += static_cast<char>(buf[i]);
     }
-    return decipher_message_tcp_logic(out_str);
+    return decipher_message_tcp_logic(out_str, client_socket, d_name);
 }
 
 /**
@@ -121,43 +125,41 @@ bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len){
  * @param client_socket - The client socket to listen on
  * @param myVector - A pointer to the shared vector to store the deciphered message (type: `SharedVector`)
  */
-void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
+bool
+listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector, std::string &display_name) {
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;
-    uint8_t buf[4096];
+    uint8_t buf[2048];
     size_t len = sizeof(buf);
 
     pid_t main_id = getpid();
     pid_t pid;
-
     while (*listen_on_port) {
-
-        if (!*UDP)
-            sem_wait(tcp_listening);
-
-        int ret = poll(fds, 1, 300);
+        int ret = poll(fds, 1, 500);
 
         if (ret == -1) {
             printf("Error: poll failed\n");
             break;
         } else if (ret > 0) {
             if (main_id == getpid())
+
                 pid = fork();
+
             if (pid == 0) {
                 int message_length = receive_message(server_address, client_socket, buf, len);
 
-                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
+                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket, display_name))
                     *listen_on_port = false;
 
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        if (!*UDP)
-            sem_post(tcp_listening);
-
     }
+    if (getpid() == main_id)
+        return false;
+    return true;
 }
 
 bool connect_tcp(int client_socket, sockaddr_in *server_address) {

@@ -2,9 +2,10 @@
 // Created by artem on 3/8/24.
 //
 #include <iostream>
+#include <regex>
 #include "packets_tcp.h"
 
-const char *TOKEN_IPK = "cc20830f-8124-49d9-b3d4-2d63dfe15bfb";
+//const char *TOKEN_IPK = "cc20830f-8124-49d9-b3d4-2d63dfe15bfb";
 
 void increment_counter() {
     sem_wait(counter_stop);
@@ -33,9 +34,10 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
         sem_wait(sent_messages);
         auto it = std::find(myVector->begin(), myVector->end(), counter);
         sem_post(sent_messages);
+        //std::cout<<"Waiting "<<std::endl;
         if (it != myVector->end()) {
             if (std::next(it) != myVector->end() && *std::next(it) != 1) {
-                std::cout << "Not confirmed, sending again" << std::endl;
+                //std::cout << "Not confirmed, sending again" << std::endl;
                 bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
                                   sizeof(*server_address));
                 if (bytes_tx < 0) perror("ERROR: sendto");
@@ -60,7 +62,10 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
  * @param counter The counter value to be added to the shared vector.
  */
 void add_to_sent_messages(SharedVector *myVector, int counter) {
-    sem_wait(sent_messages);
+    if (sem_wait(sent_messages) == -1) {
+        perror("sem_wait");
+        exit(EXIT_FAILURE);
+    }
     myVector->push_back(counter);
     myVector->push_back(0);
     sem_post(sent_messages);
@@ -91,6 +96,7 @@ void add_to_sent_messages(SharedVector *myVector, int counter) {
 * @param myVector A pointer to the shared vector of messages.
 */
 void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
+                    std::string &TOKEN_IPK,
                     SharedVector *myVector) {
     uint8_t buf_out[256];
     if (!*UDP) {
@@ -108,11 +114,10 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
                                address_size);
         if (bytes_tx < 0) {
             perror("ERROR: sendto");
-            std::cout << "auth problem" << std::endl;
+            std::cerr << "auth problem" << std::endl;
         }
 
         add_to_sent_messages(myVector, local_count);
-
         if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
             std::cout << "Couldn't auth to server, try again" << std::endl;
         else {
@@ -215,16 +220,16 @@ void join_to_server(sockaddr_in *server_address, int client_socket, std::string 
  * @param error Flag indicating if the message is an error message.
  * @param myVector A pointer to the shared vector used to track sent messages.
  */
-void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error,
+void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error_msg,
               SharedVector *myVector) {
     if (!*UDP) {
-        send_msg_tcp_logic(disp_name, msg, client_socket);
+        send_msg_tcp_logic(disp_name, msg, client_socket, error_msg);
     } else {
         uint8_t buf_out[1250];
 
         int local_count = *count;
 
-        MsgPacket message(error ? 0xFE : 0x04, *count, msg, disp_name);
+        MsgPacket message(error_msg ? 0xFE : 0x04, *count, msg, disp_name);
         increment_counter();
 
         int len = message.construct_message(buf_out);
@@ -261,7 +266,7 @@ void send_confirm(sockaddr_in *server_address, int client_socket, int ref_id) {
     if (bytes_tx < 0) perror("ERROR: sendto");
 }
 
-int read_packet_id(uint8_t *buf) {
+int read_packet_id(const uint8_t *buf) {
     int result = buf[1] << 8 | buf[2];
     return ntohs(result);
 }
@@ -295,7 +300,6 @@ void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
 }
 
 
-
 /**
  * @brief Confirm the ID from a vector
  *
@@ -309,7 +313,7 @@ void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
  *
  * @return None
  */
-void confirm_id_from_vector(uint8_t *buf, SharedVector *myVector) {
+void confirm_id_from_vector(const uint8_t *buf, SharedVector *myVector) {
     int result = buf[1] << 8 | buf[2];
 
     result = ntohs(result);
@@ -347,7 +351,6 @@ void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in *se
         send_confirm(server_address, client_socket, read_packet_id(buf));
     }
     sem_post(sent_messages);
-    std::cout << "\n";
 }
 
 /**
@@ -367,14 +370,33 @@ void print_reply(uint8_t *buf, int message_length) {
     std::string message_contents;
     for (; i < message_length; ++i) {
         message_contents += static_cast<char>(buf[i]);
-        if (buf[i] == 0x00)
+        if (buf[i] == 0x00) {
             break;
+        }
     }
-    ntohs(buf[3]) ? std::cout << "Success: " << message_contents << std::endl : std::cout << "Failure: "
-                                                                                          << message_contents
-                                                                                          << std::endl;
+//    ntohs(buf[3]) ? std::cerr << "Success: " << message_contents << std::endl : std::cerr << "Failure: "
+//                                                                                          << message_contents
+//                                                                                          << std::endl;
+    if (ntohs(buf[3])) {
+        std::cerr << "Success: " << message_contents << std::endl;
+    } else {
+        std::cerr << "Failure: " << message_contents << std::endl;
+    }
+
 }
 
+void send_err(SharedVector *myVector, sockaddr_in *server_address,
+              int client_socket, std::string &DisplayName, std::string &userInput) {
+    send_msg(server_address, client_socket, DisplayName, userInput, true, myVector);
+    say_bye(server_address, client_socket, myVector);
+}
+
+bool check_validity(int from, int to, int actual_length) {
+    if (actual_length >= from && actual_length <= to)
+        return true;
+    std::cerr << "Incorrect message" << std::endl;
+    return false;
+}
 
 /**
  * @brief Deciphers a message based on the first byte of the buffer.
@@ -393,31 +415,59 @@ void print_reply(uint8_t *buf, int message_length) {
  * @return True if the message deciphering is successful and the function should continue, otherwise returns false.
  */
 bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
-                          int client_socket) {
+                          int client_socket, std::string &DisplayName) {
     switch (buf[0]) {
         case 0x00://Confirm
+            if (!check_validity(3, 3, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             confirm_id_from_vector(buf, myVector);
             break;
         case 0x01://REPLY
+            if (!check_validity(7, 1407, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             delete_id_from_vector(buf, myVector, server_address, client_socket);
             print_reply(buf, message_length);
             break;
         case 0x04://MSG
+            if (!check_validity(5, 1425, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             read_msg_bytes(buf, message_length, false);
             send_confirm(server_address, client_socket, read_packet_id(buf));//read_packet_id(buf);
             break;
         case 0xFE://ERR
+            if (!check_validity(5, 1425, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             //std::cout << "Err" << std::endl;
             read_msg_bytes(buf, message_length, true);
             send_confirm(server_address, client_socket, read_packet_id(buf));
-            break;
+            return false;
         case 0xFF://BYE
-            std::cout << "Bye" << std::endl;
+            if (!check_validity(3, 3, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
+            std::cout << "Server terminated connection" << std::endl;
             send_confirm(server_address, client_socket, read_packet_id(buf));
             return false;
         default:
-            std::cout << "Def" << std::endl;
-            break;
+            std::string userInput = "Unknown message, terminating the connection";
+            std::cerr << userInput << std::endl;
+            send_confirm(server_address, client_socket, read_packet_id(buf));
+            send_err(myVector, server_address, client_socket, DisplayName, userInput);
+            return false;
     }
     return true;
 }
@@ -431,8 +481,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
  * @param message The message to be deciphered.
  * @return True if the deciphering was successful, false if the message is "BYE".
  */
-bool decipher_message_tcp_logic(std::string &message) {
-
+bool decipher_message_tcp_logic(std::string &message, int client_socket, std::string &d_name) {
     std::istringstream iss(message);
     std::vector<std::string> result;
     for (std::string s; std::getline(iss, s, ' ');) {
@@ -440,22 +489,84 @@ bool decipher_message_tcp_logic(std::string &message) {
     }
 
     if (result[0] == "MSG") {
-        for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
-            std::cout << *it << ' ';
+        std::regex e("^MSG FROM .{1,20} IS .{1,1400}$");
+        if (!std::regex_match(message, e)){
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
         }
-        std::cout << "\n";
+
+        std::cout << result[2] << ": ";
+        for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
+            if (std::next(it) == result.end()) {
+                std::cout << *it;
+            } else {
+                std::cout << *it << ' ';
+            }
+        }
+        std::cout << std::endl;
+
     } else if (result[0] == "REPLY") {
+        std::regex e("^REPLY (OK|NOK) IS .{1,1400}$");
+        if (!std::regex_match(message, e)) {
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
+        }
+
         if (result[1] == "OK") {
             if (!*auth) {
                 *auth = true;
                 *open_state = true;
             }
-            for (auto it = std::next(result.begin(), 3); it != result.end(); ++it) {
-                std::cout << *it << ' ';
-            }
-            std::cout << "\n";
+            std::cerr << "Success:" << ' ';
+        } else {
+            std::cerr << "Failure:" << ' ';
         }
+        for (auto it = std::next(result.begin(), 3); it != result.end(); ++it) {
+            if (std::next(it) == result.end()) {
+                std::cerr << *it;
+            } else {
+                std::cerr << *it << ' ';
+            }
+        }
+        std::cerr << std::endl;
     } else if (result[0] == "BYE") {
+        std::cout << "Sending bye" << std::endl;
+        say_bye_tcp_logic(client_socket);
+        return false;
+    } else if (result[0] == "ERR") {
+
+        std::regex e("^ERR FROM .{1,20} IS .{1,1400}$");
+        if (!std::regex_match(message, e)) {
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
+        }
+
+
+        std::cerr << "ERR FROM " << result[2] << ": ";
+        for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
+            if (std::next(it) == result.end()) {
+                std::cerr << *it;
+            } else {
+                std::cerr << *it << ' ';
+            }
+        }
+        std::cerr << std::endl;
+        say_bye_tcp_logic(client_socket);
+        return false;
+    } else {
+        std::string error_message = "ERR: Unknown message type " + result[0];
+        std::cerr << error_message << result[0] << std::endl;
+        send_msg_tcp_logic(d_name, error_message, client_socket, true);
+        say_bye_tcp_logic(client_socket);
         return false;
     }
     return true;

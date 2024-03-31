@@ -21,13 +21,14 @@ int create_socket();
 
 void server_connection(sockaddr_in *server_address);
 
-void listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
+bool
+listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector, std::string &display_name);
 
 int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf, size_t len);
 
 bool connect_tcp(int client_socket, sockaddr_in *server_address);
 
-bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len);
+bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len, std::string &d_name);
 
 #endif //IPK_CPP_COMM_H
 
