@@ -489,8 +489,10 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
     }
 
     if (result[0] == "MSG") {
+
+        //Check message validity
         std::regex e("^MSG FROM .{1,20} IS .{1,1400}$");
-        if (!std::regex_match(message, e)){
+        if (!std::regex_match(message, e)) {
             std::string mes = "String s does not match pattern e";
             std::cout << mes << std::endl;
             send_msg_tcp_logic(d_name, mes, client_socket, true);
@@ -509,6 +511,8 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         std::cout << std::endl;
 
     } else if (result[0] == "REPLY") {
+
+        //Check message validity
         std::regex e("^REPLY (OK|NOK) IS .{1,1400}$");
         if (!std::regex_match(message, e)) {
             std::string mes = "String s does not match pattern e";
@@ -535,12 +539,13 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
             }
         }
         std::cerr << std::endl;
+
     } else if (result[0] == "BYE") {
         std::cout << "Sending bye" << std::endl;
         say_bye_tcp_logic(client_socket);
         return false;
     } else if (result[0] == "ERR") {
-
+        //Check message validity
         std::regex e("^ERR FROM .{1,20} IS .{1,1400}$");
         if (!std::regex_match(message, e)) {
             std::string mes = "String s does not match pattern e";
@@ -549,7 +554,6 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
             say_bye_tcp_logic(client_socket);
             return false;
         }
-
 
         std::cerr << "ERR FROM " << result[2] << ": ";
         for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
@@ -563,6 +567,7 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         say_bye_tcp_logic(client_socket);
         return false;
     } else {
+
         std::string error_message = "ERR: Unknown message type " + result[0];
         std::cerr << error_message << result[0] << std::endl;
         send_msg_tcp_logic(d_name, error_message, client_socket, true);

@@ -15,7 +15,18 @@ void signalHandler(int signum) {
     *chat = false;
 }
 
-
+/**
+ * @brief This is the main function of the client.
+ *
+ * This function initializes and manages shared memory objects, creates and handles child processes, and performs
+ * various cleanup tasks. It also contains the main logic of the software, including handling user input and
+ * communication with a server.
+ *
+ * @param argc The number of command line arguments.
+ * @param argv An array of command line argument strings.
+ *
+ * @return The exit status of the software.
+ */
 int main(int argc, char *argv[]) {
 
     boost::interprocess::shared_memory_object::remove("20");
