@@ -133,7 +133,8 @@ int main(int argc, char *argv[]) {
 
             }
         } else {
-            if(!listen_on_socket(server_address, client_socket, myVector))
+            std::string DisplayName(vector_DN->begin(), vector_DN->end());
+            if(!listen_on_socket(server_address, client_socket, myVector, DisplayName))
                 *chat = false;
         }
     } else {

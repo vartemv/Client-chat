@@ -125,11 +125,12 @@ bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len, std::strin
  * @param client_socket - The client socket to listen on
  * @param myVector - A pointer to the shared vector to store the deciphered message (type: `SharedVector`)
  */
-bool listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
+bool
+listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector, std::string &display_name) {
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;
-    uint8_t buf[4096];
+    uint8_t buf[2048];
     size_t len = sizeof(buf);
 
     pid_t main_id = getpid();
@@ -148,7 +149,7 @@ bool listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
             if (pid == 0) {
                 int message_length = receive_message(server_address, client_socket, buf, len);
 
-                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket))
+                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket, display_name))
                     *listen_on_port = false;
 
                 break;
@@ -156,7 +157,7 @@ bool listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVect
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
-    if(getpid() == main_id)
+    if (getpid() == main_id)
         return false;
     return true;
 }

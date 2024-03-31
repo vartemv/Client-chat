@@ -2,6 +2,7 @@
 // Created by artem on 3/8/24.
 //
 #include <iostream>
+#include <regex>
 #include "packets_tcp.h"
 
 //const char *TOKEN_IPK = "cc20830f-8124-49d9-b3d4-2d63dfe15bfb";
@@ -376,7 +377,6 @@ void print_reply(uint8_t *buf, int message_length) {
 //    ntohs(buf[3]) ? std::cerr << "Success: " << message_contents << std::endl : std::cerr << "Failure: "
 //                                                                                          << message_contents
 //                                                                                          << std::endl;
-
     if (ntohs(buf[3])) {
         std::cerr << "Success: " << message_contents << std::endl;
     } else {
@@ -385,6 +385,18 @@ void print_reply(uint8_t *buf, int message_length) {
 
 }
 
+void send_err(SharedVector *myVector, sockaddr_in *server_address,
+              int client_socket, std::string &DisplayName, std::string &userInput) {
+    send_msg(server_address, client_socket, DisplayName, userInput, true, myVector);
+    say_bye(server_address, client_socket, myVector);
+}
+
+bool check_validity(int from, int to, int actual_length) {
+    if (actual_length >= from && actual_length <= to)
+        return true;
+    std::cerr << "Incorrect message" << std::endl;
+    return false;
+}
 
 /**
  * @brief Deciphers a message based on the first byte of the buffer.
@@ -403,31 +415,59 @@ void print_reply(uint8_t *buf, int message_length) {
  * @return True if the message deciphering is successful and the function should continue, otherwise returns false.
  */
 bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
-                          int client_socket) {
+                          int client_socket, std::string &DisplayName) {
     switch (buf[0]) {
         case 0x00://Confirm
+            if (!check_validity(3, 3, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             confirm_id_from_vector(buf, myVector);
             break;
         case 0x01://REPLY
+            if (!check_validity(7, 1407, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             delete_id_from_vector(buf, myVector, server_address, client_socket);
             print_reply(buf, message_length);
             break;
         case 0x04://MSG
+            if (!check_validity(5, 1425, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             read_msg_bytes(buf, message_length, false);
             send_confirm(server_address, client_socket, read_packet_id(buf));//read_packet_id(buf);
             break;
         case 0xFE://ERR
+            if (!check_validity(5, 1425, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             //std::cout << "Err" << std::endl;
             read_msg_bytes(buf, message_length, true);
             send_confirm(server_address, client_socket, read_packet_id(buf));
             return false;
         case 0xFF://BYE
+            if (!check_validity(3, 3, message_length)) {
+                std::string userInput = "Incorrect message";
+                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                return false;
+            }
             std::cout << "Server terminated connection" << std::endl;
             send_confirm(server_address, client_socket, read_packet_id(buf));
             return false;
         default:
-            std::cout << "Def" << std::endl;
-            break;
+            std::string userInput = "Unknown message, terminating the connection";
+            std::cerr << userInput << std::endl;
+            send_confirm(server_address, client_socket, read_packet_id(buf));
+            send_err(myVector, server_address, client_socket, DisplayName, userInput);
+            return false;
     }
     return true;
 }
@@ -442,7 +482,6 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
  * @return True if the deciphering was successful, false if the message is "BYE".
  */
 bool decipher_message_tcp_logic(std::string &message, int client_socket, std::string &d_name) {
-
     std::istringstream iss(message);
     std::vector<std::string> result;
     for (std::string s; std::getline(iss, s, ' ');) {
@@ -450,6 +489,17 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
     }
 
     if (result[0] == "MSG") {
+        std::regex e("^MSG FROM .{1,20} IS .{1,1400}$");
+        if (std::regex_match(message, e))
+            std::cout << "String s matches pattern e\n";
+        else {
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
+        }
+
         std::cout << result[2] << ": ";
         for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
             if (std::next(it) == result.end()) {
@@ -460,6 +510,16 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         }
         std::cout << std::endl;
     } else if (result[0] == "REPLY") {
+        std::regex e("^REPLY (OK|NOK) IS .{1,1400}$");
+        if (std::regex_match(message, e))
+            std::cout << "String s matches pattern e\n";
+        else {
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
+        }
         if (result[1] == "OK") {
             if (!*auth) {
                 *auth = true;
@@ -483,6 +543,17 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         return false;
     } else if (result[0] == "ERR") {
 
+        std::regex e("^ERR FROM .{1,20} IS .{1,1400}$");
+        if (std::regex_match(message, e))
+            std::cout << "String s matches pattern e\n";
+        else {
+            std::string mes = "String s does not match pattern e";
+            std::cout << mes << std::endl;
+            send_msg_tcp_logic(d_name, mes, client_socket, true);
+            say_bye_tcp_logic(client_socket);
+            return false;
+        }
+
         std::cerr << "ERR FROM " << result[2] << ": ";
         for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
             if (std::next(it) == result.end()) {
@@ -498,6 +569,8 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         std::string error_message = "ERR: Unknown message type " + result[0];
         std::cerr << error_message << result[0] << std::endl;
         send_msg_tcp_logic(d_name, error_message, client_socket, true);
+        say_bye_tcp_logic(client_socket);
+        return false;
     }
     return true;
 }

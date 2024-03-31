@@ -35,7 +35,7 @@ void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_
               SharedVector *myVector);
 
 bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
-                          int client_socket);
+                          int client_socket, std::string &DisplayName);
 
 void increment_counter();
 bool decipher_message_tcp_logic(std::string &message, int client_socket, std::string &d_name);
