@@ -20,10 +20,8 @@ void join_to_server_tcp_logic(std::string &disp_name, std::string &ch_id, int cl
 
 void send_msg_tcp_logic(std::string &d_name, std::string &msg, int client_socket, bool error_tcp) {
     std::string message;
-    if (error_tcp)
-        message = "ERR FROM " + d_name + " IS " + msg + "\r\n";
-    else
-        message = "MSG FROM " + d_name + " IS " + msg + "\r\n";
+    error_tcp ? message = "ERR FROM " + d_name + " IS " + msg + "\r\n" : message = "MSG FROM " + d_name + " IS " + msg +
+                                                                                   "\r\n";
     send_message_tcp(client_socket, message);
 }
 

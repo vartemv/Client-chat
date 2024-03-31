@@ -8,7 +8,7 @@ uint16_t timeout_chat;
 uint8_t retransmissions;
 const char *HOST_chat;
 
-void print_help_cli(){
+void print_help_cli() {
     std::cout <<
               R"(| -t    | User provided | tcp or udp                | Transport protocol used for connection      |
 | -s    | User provided | IP address or hostname    | Server IP or hostname                       |
@@ -103,11 +103,6 @@ bool get_parameters(int argc, char *argv[], bool *UDP) {
         std::cout << "You didnt specify host or protocol";
         return false;
     }
-
-//    std::cout << HOST_chat << std::endl;
-//    std::cout << port << std::endl;
-//    std::cout << timeout_chat << std::endl;
-//    std::cout << static_cast<int>(retransmissions) << std::endl;
 
     return true;
 }

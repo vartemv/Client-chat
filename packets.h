@@ -21,7 +21,8 @@
 typedef boost::interprocess::allocator<uint16_t, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
 typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
-void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name, std::string &TOKEN_IPK,
+void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
+                    std::string &TOKEN_IPK,
                     SharedVector *myVector);
 
 bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
@@ -38,6 +39,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
                           int client_socket, std::string &DisplayName);
 
 void increment_counter();
+
 bool decipher_message_tcp_logic(std::string &message, int client_socket, std::string &d_name);
 
 extern bool *auth;
