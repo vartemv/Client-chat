@@ -145,7 +145,6 @@ int main(int argc, char *argv[]) {
                         if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
                             *chat = false;
                         }
-
                         userInput.clear();
                     }
                 }
