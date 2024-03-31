@@ -316,7 +316,6 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                 break;
             case evHelp:
                   print_help();
-//                std::cout << "Some help info" << std::endl;
                 break;
             case evEnd:
                 if (say_bye(server_address, client_socket, myVector))
@@ -357,7 +356,7 @@ static bool Init_values() {
     String_to_values["/join"] = evJoin;
     String_to_values["/rename"] = evRename;
     String_to_values["/help"] = evHelp;
-    String_to_values["exit"] = evEnd;
+    String_to_values["/exit"] = evEnd;
 
     if (((sent_messages = sem_open("sent", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) ||
         ((counter_stop = sem_open("counterr", O_CREAT | O_WRONLY, 0666, 1)) == SEM_FAILED) ||
