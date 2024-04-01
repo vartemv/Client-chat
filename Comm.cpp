@@ -123,10 +123,10 @@ bool receive_message_tcp(int client_socket, uint8_t *buf, size_t len, std::strin
  *
  * @param server_address - A pointer to the sockaddr_in structure that contains the server address
  * @param client_socket - The client socket to listen on
- * @param myVector - A pointer to the shared vector to store the deciphered message (type: `SharedVector`)
+ * @param confirmation_vector - A pointer to the shared vector to store the deciphered message (type: `SharedVector`)
  */
 bool
-listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector, std::string &display_name) {
+listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *confirmation_vector, std::string &display_name) {
     struct pollfd fds[1];
     fds[0].fd = client_socket;
     fds[0].events = POLLIN;
@@ -149,7 +149,7 @@ listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *m
             if (pid == 0) {
                 int message_length = receive_message(server_address, client_socket, buf, len);
 
-                if (!decipher_the_message(buf, message_length, myVector, server_address, client_socket, display_name))
+                if (!decipher_the_message(buf, message_length, confirmation_vector, server_address, client_socket, display_name))
                     *listen_on_port = false;
 
                 break;

@@ -23,19 +23,19 @@ typedef boost::interprocess::vector<uint16_t, ShmemAllocator> SharedVector;
 
 void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     std::string &TOKEN_IPK,
-                    SharedVector *myVector);
+                    SharedVector *confirmation_vector);
 
-bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector);
+bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *confirmation_vector);
 
 void send_confirm(sockaddr_in *server_address, int client_socket, int ref_id);
 
 void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &disp_name,
-                    SharedVector *myVector);
+                    SharedVector *confirmation_vector);
 
 void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error_msg,
-              SharedVector *myVector);
+              SharedVector *confirmation_vector);
 
-bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *confirmation_vector, sockaddr_in *server_address,
                           int client_socket, std::string &DisplayName);
 
 void increment_counter();

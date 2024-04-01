@@ -16,13 +16,13 @@
 typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> CharAllocator;
 typedef boost::interprocess::vector<char, CharAllocator> shm_vector;
 
-bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vector_string, shm_vector *vector_display,
+bool handle_chat(std::string &userInput, SharedVector *confirmation_vector, shm_vector *vector_string, shm_vector *vector_display,
                  shm_vector *vector_channel);
 
 static bool Init_values();
 
-void tcp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *myVector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
-void udp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *myVector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
+void tcp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *confirmation_vector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
+void udp_behaviour(pollfd fds[2], std::string& userInput, SharedVector *confirmation_vector, shm_vector *vector_UN, shm_vector *vector_DN, shm_vector *vector_CD);
 
 enum StringValue {
     evAuth,

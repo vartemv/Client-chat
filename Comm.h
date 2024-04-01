@@ -22,7 +22,7 @@ int create_socket();
 void server_connection(sockaddr_in *server_address);
 
 bool
-listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *myVector, std::string &display_name);
+listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *confirmation_vector, std::string &display_name);
 
 int receive_message(sockaddr_in *server_address, int client_socket, uint8_t *buf, size_t len);
 

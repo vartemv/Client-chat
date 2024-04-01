@@ -22,21 +22,22 @@ void increment_counter() {
  * @param buf_out The buffer containing the message to be sent.
  * @param len The length of the message in bytes.
  * @param server_address The server address.
- * @param myVector The shared vector containing the message counters.
+ * @param confirmation_vector The shared vector containing the message counters.
  *
  * @return True if the message is confirmed, false otherwise.
  */
+
 bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int len,
-                         sockaddr_in *server_address, SharedVector *myVector) {
+                         sockaddr_in *server_address, SharedVector *confirmation_vector) {
     long bytes_tx;
     for (int i = 0; i < retransmissions; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(timeout_chat));
         sem_wait(sent_messages);
-        auto it = std::find(myVector->begin(), myVector->end(), counter);
+        auto it = std::find(confirmation_vector->begin(), confirmation_vector->end(), counter);
         sem_post(sent_messages);
         //std::cout<<"Waiting "<<std::endl;
-        if (it != myVector->end()) {
-            if (std::next(it) != myVector->end() && *std::next(it) != 1) {
+        if (it != confirmation_vector->end()) {
+            if (std::next(it) != confirmation_vector->end() && *std::next(it) != 1) {
                 //std::cout << "Not confirmed, sending again" << std::endl;
                 bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address,
                                   sizeof(*server_address));
@@ -58,25 +59,25 @@ bool waiting_for_confirm(int counter, int client_socket, uint8_t *buf_out, int l
  * This function adds a counter value to a shared vector of messages
  * The function uses a semaphore to ensure synchronized access to the shared vector.
  *
- * @param myVector A pointer to the shared vector where the counter value will be added.
+ * @param confirmation_vector A pointer to the shared vector where the counter value will be added.
  * @param counter The counter value to be added to the shared vector.
  */
-void add_to_sent_messages(SharedVector *myVector, int counter) {
+void add_to_sent_messages(SharedVector *confirmation_vector, int counter) {
     if (sem_wait(sent_messages) == -1) {
         perror("sem_wait");
         exit(EXIT_FAILURE);
     }
-    myVector->push_back(counter);
-    myVector->push_back(0);
+    confirmation_vector->push_back(counter);
+    confirmation_vector->push_back(0);
     sem_post(sent_messages);
 
     //Bad code to fix strange behaviour of vector at the beginning of comunication
-    auto it1 = std::find(myVector->begin(), myVector->end(), 65535);
-    auto it2 = std::find(myVector->begin(), myVector->end(), 65266);
-    if (it1 != myVector->end()) {
+    auto it1 = std::find(confirmation_vector->begin(), confirmation_vector->end(), 65535);
+    auto it2 = std::find(confirmation_vector->begin(), confirmation_vector->end(), 65266);
+    if (it1 != confirmation_vector->end()) {
         *it1 = 0;
     }
-    if (it2 != myVector->end()) {
+    if (it2 != confirmation_vector->end()) {
         *it2 = 0;
     }
 }
@@ -93,11 +94,11 @@ void add_to_sent_messages(SharedVector *myVector, int counter) {
 * @param client_socket The client socket.
 * @param u_n The username.
 * @param disp_name The display name.
-* @param myVector A pointer to the shared vector of messages.
+* @param confirmation_vector A pointer to the shared vector of messages.
 */
 void auth_to_server(sockaddr_in *server_address, int client_socket, std::string &u_n, std::string &disp_name,
                     std::string &TOKEN_IPK,
-                    SharedVector *myVector) {
+                    SharedVector *confirmation_vector) {
     uint8_t buf_out[256];
     if (!*UDP) {
         auth_to_server_tcp_logic(u_n, disp_name, TOKEN_IPK, client_socket);
@@ -117,13 +118,9 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
             std::cerr << "auth problem" << std::endl;
         }
 
-        add_to_sent_messages(myVector, local_count);
-        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+        add_to_sent_messages(confirmation_vector, local_count);
+        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, confirmation_vector))
             std::cout << "Couldn't auth to server, try again" << std::endl;
-        else {
-            *auth = true;
-            *open_state = true;
-        }
     }
 }
 
@@ -137,11 +134,11 @@ void auth_to_server(sockaddr_in *server_address, int client_socket, std::string 
  *
  * @param server_address The address of the server.
  * @param client_socket The client socket.
- * @param myVector A pointer to the shared vector of messages.
+ * @param confirmation_vector A pointer to the shared vector of messages.
  *
  * @return True if the connection is terminated successfully, false otherwise.
  */
-bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVector) {
+bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *confirmation_vector) {
 
     if (!*UDP) {
         say_bye_tcp_logic(client_socket);
@@ -159,9 +156,9 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
         long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
         if (bytes_tx < 0) perror("ERROR: sendto");
 
-        add_to_sent_messages(myVector, local_counter);
+        add_to_sent_messages(confirmation_vector, local_counter);
 
-        if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, myVector)) {
+        if (!waiting_for_confirm(local_counter, client_socket, buf, len, server_address, confirmation_vector)) {
             std::cerr << "ERR: Couldn't terminate the connection to server, try again" << std::endl;
             return false;
         } else {
@@ -183,10 +180,10 @@ bool say_bye(sockaddr_in *server_address, int client_socket, SharedVector *myVec
  * @param client_socket The client socket.
  * @param ch_id The channel ID.
  * @param d_name The client's display name.
- * @param myVector A pointer to the shared vector containing the message counters.
+ * @param confirmation_vector A pointer to the shared vector containing the message counters.
  */
 void join_to_server(sockaddr_in *server_address, int client_socket, std::string &ch_id, std::string &d_name,
-                    SharedVector *myVector) {
+                    SharedVector *confirmation_vector) {
     if (!*UDP) {
         join_to_server_tcp_logic(d_name, ch_id, client_socket);
     } else {
@@ -198,12 +195,12 @@ void join_to_server(sockaddr_in *server_address, int client_socket, std::string 
 
         int len = join.construct_message(buf);
 
-        add_to_sent_messages(myVector, local_count);
+        add_to_sent_messages(confirmation_vector, local_count);
 
         long bytes_tx = sendto(client_socket, buf, len, 0, (struct sockaddr *) server_address, sizeof(*server_address));
         if (bytes_tx < 0) perror("ERROR: sendto");
 
-        if (!waiting_for_confirm(local_count, client_socket, buf, len, server_address, myVector))
+        if (!waiting_for_confirm(local_count, client_socket, buf, len, server_address, confirmation_vector))
             std::cout << "Couldn't join the channel specified" << std::endl;
     }
 }
@@ -218,10 +215,10 @@ void join_to_server(sockaddr_in *server_address, int client_socket, std::string 
  * @param disp_name The display name.
  * @param msg The message to send.
  * @param error Flag indicating if the message is an error message.
- * @param myVector A pointer to the shared vector used to track sent messages.
+ * @param confirmation_vector A pointer to the shared vector used to track sent messages.
  */
 void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_name, std::string &msg, bool error_msg,
-              SharedVector *myVector) {
+              SharedVector *confirmation_vector) {
     if (!*UDP) {
         send_msg_tcp_logic(disp_name, msg, client_socket, error_msg);
     } else {
@@ -239,9 +236,9 @@ void send_msg(sockaddr_in *server_address, int client_socket, std::string &disp_
         long bytes_tx = sendto(client_socket, buf_out, len, 0, (struct sockaddr *) server_address, address_size);
         if (bytes_tx < 0) perror("ERROR: sendto");
 
-        add_to_sent_messages(myVector, local_count);
+        add_to_sent_messages(confirmation_vector, local_count);
 
-        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, myVector))
+        if (!waiting_for_confirm(local_count, client_socket, buf_out, len, server_address, confirmation_vector))
             std::cout << "Message haven't been sent" << std::endl;
     }
 }
@@ -282,23 +279,16 @@ int read_packet_id(const uint8_t *buf) {
  * @param message_length The length of the message in bytes.
  */
 void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
-    std::string out_str;
-    std::string display_name;
-    size_t i = 3;
-    for (; i < message_length; ++i) {
-        display_name += static_cast<char>(buf[i]);
-        if (buf[i] == 0x00)
-            break;
-    }
-    for (; i < message_length; ++i) {
-        out_str += static_cast<char>(buf[i]);
-    }
     if (error_msg)
-        std::cerr << "ERROR FROM " << display_name << ": " << out_str << std::endl;
-    else
-        std::cout << display_name << ": " << out_str << std::endl;
+        std::cerr << "ERR FROM ";
+    for (size_t i = 3; i < message_length - 1; ++i) {
+        error_msg ? std::cerr << static_cast<char>(buf[i]) : std::cout << static_cast<char>(buf[i]);
+        if (buf[i] == 0x00) {
+            error_msg ? std::cerr << ": " : std::cout << ": ";
+        }
+    }
+    error_msg ? std::cerr << std::endl : std::cout << std::endl;
 }
-
 
 /**
  * @brief Confirm the ID from a vector
@@ -309,17 +299,17 @@ void read_msg_bytes(uint8_t *buf, int message_length, bool error_msg) {
  * it in the vector is set to 1 as message confirmation.
  *
  * @param buf The buffer containing the data
- * @param myVector A shared vector of type uint16_t
+ * @param confirmation_vector A shared vector of type uint16_t
  *
  * @return None
  */
-void confirm_id_from_vector(const uint8_t *buf, SharedVector *myVector) {
+void confirm_id_from_vector(const uint8_t *buf, SharedVector *confirmation_vector) {
     int result = buf[1] << 8 | buf[2];
 
     result = ntohs(result);
     sem_wait(sent_messages);
-    auto it = std::find(myVector->begin(), myVector->end(), result);
-    if (it != myVector->end()) {
+    auto it = std::find(confirmation_vector->begin(), confirmation_vector->end(), result);
+    if (it != confirmation_vector->end()) {
         *std::next(it) = 1;
     }
     sem_post(sent_messages);
@@ -335,19 +325,19 @@ void confirm_id_from_vector(const uint8_t *buf, SharedVector *myVector) {
  * This function uses a semaphore to synchronize access to the vector.
  *
  * @param buf The buffer containing the ID.
- * @param myVector The vector from which to delete the ID.
+ * @param confirmation_vector The vector from which to delete the ID.
  * @param server_address The server address to send the confirmation packet to.
  * @param client_socket The client socket used to send the confirmation packet.
  */
-void delete_id_from_vector(uint8_t *buf, SharedVector *myVector, sockaddr_in *server_address, int client_socket) {
+void delete_id_from_vector(uint8_t *buf, SharedVector *confirmation_vector, sockaddr_in *server_address, int client_socket) {
 
     int result = buf[4] << 8 | buf[5];
     result = ntohs(result);
     sem_wait(sent_messages);
-    auto it = std::find(myVector->begin(), myVector->end(), result);
-    if (it != myVector->end()) {
-        it = myVector->erase(it);  // erase current item and increment iterator
-        myVector->erase(it);
+    auto it = std::find(confirmation_vector->begin(), confirmation_vector->end(), result);
+    if (it != confirmation_vector->end()) {
+        it = confirmation_vector->erase(it);  // erase current item and increment iterator
+        confirmation_vector->erase(it);
         send_confirm(server_address, client_socket, read_packet_id(buf));
     }
     sem_post(sent_messages);
@@ -374,10 +364,11 @@ void print_reply(uint8_t *buf, int message_length) {
             break;
         }
     }
-//    ntohs(buf[3]) ? std::cerr << "Success: " << message_contents << std::endl : std::cerr << "Failure: "
-//                                                                                          << message_contents
-//                                                                                          << std::endl;
     if (ntohs(buf[3])) {
+        if (!*auth) {
+            *auth = true;
+            *open_state = true;
+        }
         std::cerr << "Success: " << message_contents << std::endl;
     } else {
         std::cerr << "Failure: " << message_contents << std::endl;
@@ -385,10 +376,10 @@ void print_reply(uint8_t *buf, int message_length) {
 
 }
 
-void send_err(SharedVector *myVector, sockaddr_in *server_address,
+void send_err(SharedVector *confirmation_vector, sockaddr_in *server_address,
               int client_socket, std::string &DisplayName, std::string &userInput) {
-    send_msg(server_address, client_socket, DisplayName, userInput, true, myVector);
-    say_bye(server_address, client_socket, myVector);
+    send_msg(server_address, client_socket, DisplayName, userInput, true, confirmation_vector);
+    say_bye(server_address, client_socket, confirmation_vector);
 }
 
 bool check_validity(int from, int to, int actual_length) {
@@ -408,36 +399,36 @@ bool check_validity(int from, int to, int actual_length) {
  *
  * @param buf The buffer containing the message.
  * @param message_length The length of the message.
- * @param myVector A shared vector of type uint16_t.
+ * @param confirmation_vector A shared vector of type uint16_t.
  * @param server_address The server address used for sending a confirmation packet.
  * @param client_socket The client socket used for sending a confirmation packet.
  *
  * @return True if the message deciphering is successful and the function should continue, otherwise returns false.
  */
-bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVector, sockaddr_in *server_address,
+bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *confirmation_vector, sockaddr_in *server_address,
                           int client_socket, std::string &DisplayName) {
     switch (buf[0]) {
         case 0x00://Confirm
             if (!check_validity(3, 3, message_length)) {
                 std::string userInput = "Incorrect message";
-                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
-            confirm_id_from_vector(buf, myVector);
+            confirm_id_from_vector(buf, confirmation_vector);
             break;
         case 0x01://REPLY
             if (!check_validity(7, 1407, message_length)) {
                 std::string userInput = "Incorrect message";
-                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
-            delete_id_from_vector(buf, myVector, server_address, client_socket);
+            delete_id_from_vector(buf, confirmation_vector, server_address, client_socket);
             print_reply(buf, message_length);
             break;
         case 0x04://MSG
             if (!check_validity(5, 1425, message_length)) {
                 std::string userInput = "Incorrect message";
-                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
             read_msg_bytes(buf, message_length, false);
@@ -446,7 +437,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
         case 0xFE://ERR
             if (!check_validity(5, 1425, message_length)) {
                 std::string userInput = "Incorrect message";
-                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
             //std::cout << "Err" << std::endl;
@@ -456,7 +447,7 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
         case 0xFF://BYE
             if (!check_validity(3, 3, message_length)) {
                 std::string userInput = "Incorrect message";
-                send_err(myVector, server_address, client_socket, DisplayName, userInput);
+                send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
             std::cout << "Server terminated connection" << std::endl;
@@ -464,9 +455,9 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *myVect
             return false;
         default:
             std::string userInput = "Unknown message, terminating the connection";
-            std::cerr << userInput << std::endl;
+            std::cerr << "ERR: Unknown message, terminating the connection" << std::endl;
             send_confirm(server_address, client_socket, read_packet_id(buf));
-            send_err(myVector, server_address, client_socket, DisplayName, userInput);
+            send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
             return false;
     }
     return true;
@@ -541,7 +532,7 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         std::cerr << std::endl;
 
     } else if (result[0] == "BYE") {
-        std::cout << "Sending bye" << std::endl;
+        //std::cout << "Sending bye" << std::endl;
         say_bye_tcp_logic(client_socket);
         return false;
     } else if (result[0] == "ERR") {
@@ -568,8 +559,8 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         return false;
     } else {
 
-        std::string error_message = "ERR: Unknown message type " + result[0];
-        std::cerr << error_message << result[0] << std::endl;
+        std::string error_message = "Unknown message type " + result[0] + "\r\n";
+        std::cerr << "ERR: Unknown message type " << result[0] << std::endl;
         send_msg_tcp_logic(d_name, error_message, client_socket, true);
         say_bye_tcp_logic(client_socket);
         return false;

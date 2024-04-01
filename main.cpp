@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
     boost::interprocess::managed_shared_memory segment_for_vector(boost::interprocess::create_only, "21",
                                                                   65536);
     const ShmemAllocator alloc_inst(segment_for_vector.get_segment_manager());
-    SharedVector *myVector = segment_for_vector.construct<SharedVector>("Myytor")(alloc_inst);
-    local_vector = myVector;
+    SharedVector *confirmation_vector = segment_for_vector.construct<SharedVector>("Myytor")(alloc_inst);
+    local_vector = confirmation_vector;
 
     boost::interprocess::shared_memory_object::remove("UserName");
     boost::interprocess::managed_shared_memory segment_for_string_un(boost::interprocess::create_only, "UserName",
@@ -105,13 +105,12 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, signalHandler);
 
     if (*UDP) {
-        udp_behaviour(fds, userInput, myVector, vector_UN, vector_DN, vector_CD);
+        udp_behaviour(fds, userInput, confirmation_vector, vector_UN, vector_DN, vector_CD);
     } else {
-        tcp_behaviour(fds, userInput, myVector, vector_UN, vector_DN, vector_CD);
+        tcp_behaviour(fds, userInput, confirmation_vector, vector_UN, vector_DN, vector_CD);
     }
 
     if (main_id == getpid()) {
-        //TODO Cleanup function
         if (!*UDP) {
             shutdown(client_socket, SHUT_RDWR);
         }
@@ -124,7 +123,7 @@ int main(int argc, char *argv[]) {
         segment.destroy<bool>("chat");
         segment.destroy<bool>("auth");
         segment.destroy<bool>("open_state");
-        segment_for_vector.destroy_ptr(myVector);
+        segment_for_vector.destroy_ptr(confirmation_vector);
         munmap(count, sizeof(uint16_t));
         close(shm_fd);
         if (munmap(server_address, sizeof(sockaddr_in)) == -1) {
@@ -165,12 +164,12 @@ int main(int argc, char *argv[]) {
  *
  * @param[in,out] fds The array of pollfd structures for monitoring file descriptors.
  * @param[in,out] userInput The string where the user input is stored.
- * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] confirmation_vector Pointer to the SharedVector object.
  * @param[in] vector_UN Pointer to the shm_vector object for username data.
  * @param[in] vector_DN Pointer to the shm_vector object for display name data.
  * @param[in] vector_CD Pointer to the shm_vector object for channel ID data.
  */
-void tcp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector, shm_vector *vector_UN,
+void tcp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *confirmation_vector, shm_vector *vector_UN,
                    shm_vector *vector_DN, shm_vector *vector_CD) {
     uint8_t buf[4096];
     int len = sizeof(buf);
@@ -182,7 +181,7 @@ void tcp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector
             if (fds[0].revents && POLLIN) {//chat
                 std::getline(std::cin, userInput);
                 if (!userInput.empty()) {
-                    if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
+                    if (!handle_chat(userInput, confirmation_vector, vector_UN, vector_DN, vector_CD)) {
                         *chat = false;
                     }
                     userInput.clear();
@@ -212,12 +211,12 @@ void tcp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector
  *
  * @param[in] fds Array of pollfd structures.
  * @param[in] userInput Reference to the user input string.
- * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] confirmation_vector Pointer to the SharedVector object.
  * @param[in] vector_UN Pointer to the shm_vector object for username data.
  * @param[in] vector_DN Pointer to the shm_vector object for display name data.
  * @param[in] vector_CD Pointer to the shm_vector object for channel ID data.
  */
-void udp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector, shm_vector *vector_UN,
+void udp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *confirmation_vector, shm_vector *vector_UN,
                    shm_vector *vector_DN, shm_vector *vector_CD) {
     pid_t pid1 = fork();
     if (pid1 == -1) {
@@ -234,7 +233,7 @@ void udp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector
                 if (!userInput.empty()) {
                     pid_t pid = fork();
                     if (pid == 0) {
-                        if (!handle_chat(userInput, myVector, vector_UN, vector_DN, vector_CD)) {
+                        if (!handle_chat(userInput, confirmation_vector, vector_UN, vector_DN, vector_CD)) {
                             *chat = false;
                         }
                         userInput.clear();
@@ -246,7 +245,7 @@ void udp_behaviour(pollfd fds[2], std::string &userInput, SharedVector *myVector
         }
     } else {
         std::string DisplayName(vector_DN->begin(), vector_DN->end());
-        if (!listen_on_socket(server_address, client_socket, myVector, DisplayName))
+        if (!listen_on_socket(server_address, client_socket, confirmation_vector, DisplayName))
             *chat = false;
     }
 }
@@ -286,14 +285,14 @@ void print_help() {
  * It also interacts with the server through various helper functions.
  *
  * @param[in] userInput The user input string.
- * @param[in] myVector Pointer to the SharedVector object.
+ * @param[in] confirmation_vector Pointer to the SharedVector object.
  * @param[in] vector_string Pointer to the shm_vector object for string data.
  * @param[in] vector_display Pointer to the shm_vector object for display name data.
  * @param[in] vector_channel Pointer to the shm_vector object for channel ID data.
  *
  * @return Returns true to continue handling chat commands, or false to exit the chat application.
  */
-bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vector_string, shm_vector *vector_display,
+bool handle_chat(std::string &userInput, SharedVector *confirmation_vector, shm_vector *vector_string, shm_vector *vector_display,
                  shm_vector *vector_channel) {
 
     std::istringstream iss(userInput);
@@ -339,7 +338,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     }
                     write_to_vector(vector_string, &result[1]);
                     write_to_vector(vector_display, &result[3]);
-                    auth_to_server(server_address, client_socket, result[1], result[3], result[2], myVector);
+                    auth_to_server(server_address, client_socket, result[1], result[3], result[2], confirmation_vector);
                 } else {
                     std::cerr << "ERR: You already authed to server" << std::endl;
                 }
@@ -353,13 +352,13 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
                     std::cerr << "ERR: Channel ID shouldn't be longer than 20 characters";
                     break;
                 }
-                join_to_server(server_address, client_socket, result[1], DisplayName, myVector);
+                join_to_server(server_address, client_socket, result[1], DisplayName, confirmation_vector);
                 break;
             case evHelp:
                 print_help();
                 break;
             case evEnd:
-                if (say_bye(server_address, client_socket, myVector))
+                if (say_bye(server_address, client_socket, confirmation_vector))
                     return false;
                 break;
             case evRename:
@@ -381,7 +380,7 @@ bool handle_chat(std::string &userInput, SharedVector *myVector, shm_vector *vec
         if (!*auth) {
             std::cerr << "ERR: Sign in before doing anything" << std::endl;
         } else {
-            send_msg(server_address, client_socket, DisplayName, userInput, false, myVector);
+            send_msg(server_address, client_socket, DisplayName, userInput, false, confirmation_vector);
         }
 
     }
