@@ -440,9 +440,9 @@ bool decipher_the_message(uint8_t *buf, int message_length, SharedVector *confir
                 send_err(confirmation_vector, server_address, client_socket, DisplayName, userInput);
                 return false;
             }
-            //std::cout << "Err" << std::endl;
             read_msg_bytes(buf, message_length, true);
             send_confirm(server_address, client_socket, read_packet_id(buf));
+            say_bye(server_address, client_socket, confirmation_vector);
             return false;
         case 0xFF://BYE
             if (!check_validity(3, 3, message_length)) {
@@ -532,7 +532,6 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         std::cerr << std::endl;
 
     } else if (result[0] == "BYE") {
-        //std::cout << "Sending bye" << std::endl;
         say_bye_tcp_logic(client_socket);
         return false;
     } else if (result[0] == "ERR") {
@@ -545,7 +544,6 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
             say_bye_tcp_logic(client_socket);
             return false;
         }
-
         std::cerr << "ERR FROM " << result[2] << ": ";
         for (auto it = std::next(result.begin(), 4); it != result.end(); ++it) {
             if (std::next(it) == result.end()) {
@@ -558,7 +556,6 @@ bool decipher_message_tcp_logic(std::string &message, int client_socket, std::st
         say_bye_tcp_logic(client_socket);
         return false;
     } else {
-
         std::string error_message = "Unknown message type " + result[0] + "\r\n";
         std::cerr << "ERR: Unknown message type " << result[0] << std::endl;
         send_msg_tcp_logic(d_name, error_message, client_socket, true);

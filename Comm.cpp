@@ -137,21 +137,16 @@ listen_on_socket(sockaddr_in *server_address, int client_socket, SharedVector *c
     pid_t pid;
     while (*listen_on_port) {
         int ret = poll(fds, 1, 500);
-
         if (ret == -1) {
             printf("Error: poll failed\n");
             break;
         } else if (ret > 0) {
             if (main_id == getpid())
-
                 pid = fork();
-
             if (pid == 0) {
                 int message_length = receive_message(server_address, client_socket, buf, len);
-
                 if (!decipher_the_message(buf, message_length, confirmation_vector, server_address, client_socket, display_name))
                     *listen_on_port = false;
-
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));

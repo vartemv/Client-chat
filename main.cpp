@@ -151,6 +151,7 @@ int main(int argc, char *argv[]) {
         sem_unlink("counterr");
         sem_unlink("tcp");
         close(fd);
+        close(fds[0].fd);
     }
     while (wait(nullptr) > 0);
     return 0;
