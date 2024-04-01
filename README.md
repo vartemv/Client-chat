@@ -156,35 +156,57 @@ All tests were conducted under this environment - https://git.fit.vutbr.cz/NESFI
 
 ## UDP tests
 * Attempt to authenticate after ```!REPLY```, and trying to terminate the connection afterwards 
+
 ![img.png](images/img.png)
-* Message from the server to 
+
+* Message from the server
+
 ![img_1.png](images/img_1.png)
+
 * Error while authentication 
-![img_2.png](images/img_2.png)
+
+* ![img_2.png](images/img_2.png)
+
 * Invalid command sent
-![img_3.png](images/img_3.png)
+
+* ![img_3.png](images/img_3.png)
+
 * Common join command with ```/rename```
-![img_4.png](images/img_4.png)
+
+* ![img_4.png](images/img_4.png)
+
 * Error from server 
-![img_5.png](images/img_5.png)
+
+* ![img_5.png](images/img_5.png)
+
 ***
 ## TCP tests
+
 * Attempt to authenticate after ```!REPLY```
+
 ![img.png](images/img_1_tcp.png)
+
 * Unknown command error
+
 ![img.png](images/img_tcp_2.png)
+
 * Join to server
+
 ![img.png](images/img_tcp_3.png)
+
 * Auth error
+
 ![img.png](images/img_tcp_4.png)
+
 * Error from server 
+
 ![img.png](images/img_tcp_5.png)
 ***
 ## Bibliography
 
 * Boost C++ libraries, documentation, available at: https://www.boost.org/doc/libs/1_47_0/doc/html/interprocess/sharedmemorybetweenprocesses.html
-* Ing. Daniel Dolejška, Ing. Vladimír Veselý Ph.D., IPK lectures, [cited 03.07.2024]
-* A. S. Tanenbaum, "Computer Networks," 5th ed., Pearson, 2011, [cited 03.15.2024]
+* Ing. Daniel Dolejška, Ing. Vladimír Veselý Ph.D., IPK lectures, [03.07.2024]
+* A. S. Tanenbaum, "Computer Networks," 5th ed., Pearson, 2011, [03.15.2024]
 * GeeksforGeeks. (n.d.). different articles [03.08.2024]; URL: https://www.geeksforgeeks.org/
 * Habr. (n.d.) different articles [03.16.2024]; URL: https://www.habr.com
 * Various online resources such as youtube.com, medium.com etc.
