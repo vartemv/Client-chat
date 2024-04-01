@@ -165,19 +165,19 @@ All tests were conducted under this environment - https://git.fit.vutbr.cz/NESFI
 
 * Error while authentication 
 
-* ![img_2.png](images/img_2.png)
+![img_2.png](images/img_2.png)
 
 * Invalid command sent
 
-* ![img_3.png](images/img_3.png)
+![img_3.png](images/img_3.png)
 
 * Common join command with ```/rename```
 
-* ![img_4.png](images/img_4.png)
+![img_4.png](images/img_4.png)
 
 * Error from server 
 
-* ![img_5.png](images/img_5.png)
+![img_5.png](images/img_5.png)
 
 ***
 ## TCP tests
