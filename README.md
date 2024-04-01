@@ -171,7 +171,7 @@ All tests were conducted under this environment - https://git.fit.vutbr.cz/NESFI
 
 ![img_3.png](images/img_3.png)
 
-* Common join command with ```/rename```
+* Simple join command with ```/rename```
 
 ![img_4.png](images/img_4.png)
 
