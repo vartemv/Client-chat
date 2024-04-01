@@ -10,7 +10,6 @@ void increment_counter() {
     *count += 1;
     sem_post(counter_stop);
 }
-
 /**
  * @brief Checks if a message is confirmed by the server by waiting for a defined period of time and checking if the
  *        message counter in the shared vector is confirmed.
