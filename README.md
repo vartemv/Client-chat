@@ -149,7 +149,7 @@ if (fds[1].revents && POLLIN) {//socket
 ```receive_message_tcp()``` takes messages from the network and process them depending on their type.
 ***
 # Testing
-***
+
 I provided screenshots from Wireshark, where results of tests of basic chat functionality and some error cases can be seen.
 
 All tests were conducted under this environment - https://git.fit.vutbr.cz/NESFIT/dev-envs.git?dir=ipk#c
