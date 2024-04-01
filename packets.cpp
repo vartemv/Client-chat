@@ -5,8 +5,6 @@
 #include <regex>
 #include "packets_tcp.h"
 
-//const char *TOKEN_IPK = "cc20830f-8124-49d9-b3d4-2d63dfe15bfb";
-
 void increment_counter() {
     sem_wait(counter_stop);
     *count += 1;
